@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+numpy = "*"
+torch = "*"
+gym = "*"
+pandas = "*"
+matplotlib = "*"
+dm-control = "*"
+numpy-quaternion = "*"
+tensorflow = "*"
+ipykernel = "*"
+gymnasium = "*"
+mujoco = "*"
+gymnasium-robotics = "*"
+einops = "*"
+
+[dev-packages]
+ipykernel = "*"
+
+[requires]
+python_version = "3.10"
+python_full_version = "3.10.13"

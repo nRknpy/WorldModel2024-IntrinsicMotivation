@@ -1,0 +1,3 @@
+[submodule "submodules/lexa"]
+	path = submodules/lexa
+	url = https://github.com/orybkin/lexa.git
