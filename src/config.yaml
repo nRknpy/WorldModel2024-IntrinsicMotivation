@@ -38,7 +38,7 @@ env:
   time_limit: 1000
 
 data:
-  buffer_size: 2000000
+  buffer_size: 200000
   batch_size: 50
   seq_length: 50
   imagination_horizon: 15
