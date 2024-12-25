@@ -72,6 +72,8 @@ class LatentDistanceReward(nn.Module):
                 goal_idxs[i,1] = np.random.choice([j for j in range(bs) if j//batch_length != cur_idxs[i,1]//batch_length])
             return cur_idxs, goal_idxs
         
+        zs, hs = zs.detach(), hs.detach()
+        
         current_idxs, goal_idxs = get_future_goal_idxs(zs.shape[0], zs.shape[1])
         idx = np.random.choice(np.arange(len(current_idxs)), num_positives, replace=False)
         current_idx, goal_idx = current_idxs[idx], goal_idxs[idx]
