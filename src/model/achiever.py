@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +14,7 @@ from .utils import compute_lambda_target
 class Achiever(nn.Module):
     def __init__(self,
                  world_model: WorldModel,
+                 instrinsic_reward,
                  action_dim,
                  z_dim,
                  num_classes,
@@ -63,14 +65,7 @@ class Achiever(nn.Module):
         )
         self.target_critic.load_state_dict(self.critic.state_dict())
         
-        self.instrinsic_reward = LatentDistanceReward(
-            z_dim = z_dim,
-            num_classes = num_classes,
-            h_dim = h_dim,
-            emb_dim = emb_dim,
-            mlp_hidden_dim = mlp_hidden_dim,
-            device = device
-        )
+        self.instrinsic_reward = instrinsic_reward
     
     def train(self, init_zs: torch.Tensor, init_hs: torch.Tensor, goal_observations: torch.Tensor, horison_length, num_positives, neg_sampling_factor, batch_seq_length):
         goal_observations = rearrange(goal_observations, 'b t c h w -> (t b) c h w')
@@ -115,7 +110,7 @@ class Achiever(nn.Module):
         
         distance_estimator_loss = self.instrinsic_reward.train_distance_estimator(imagined_zs, imagined_hs, num_positives, neg_sampling_factor, batch_seq_length)
         
-        return actor_loss, critic_loss, distance_estimator_loss
+        return actor_loss, critic_loss, distance_estimator_loss, OrderedDict(ach_actor_loss=actor_loss.item(), ach_critic_loss=critic_loss.item(), distance_estimator_loss=distance_estimator_loss.item())
     
     def update_critic(self):
         self.target_critic.load_state_dict(self.critic.state_dict())

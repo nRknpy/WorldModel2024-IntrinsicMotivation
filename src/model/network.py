@@ -265,7 +265,7 @@ class ExplorerActor(nn.Module):
             return action, log_prob, entropy
         else:
             action = dist.mean
-            return action
+            return action, None, None
 
 
 class ExplorerCritic(nn.Module):
@@ -426,6 +426,9 @@ class AchieverActor(nn.Module):
         dist = Independent(TruncatedNormal(mean, std, -1, 1), 1)
         if train:
             action = dist.rsample()
+            log_prob = dist.log_prob(action.detach())
+            entropy = dist.entropy()
+            return action, log_prob, entropy
         else:
             action = dist.mean
-        return action
+        return action, None, None

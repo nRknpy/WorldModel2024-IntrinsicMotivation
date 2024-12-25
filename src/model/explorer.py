@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,6 +14,7 @@ from .utils import compute_lambda_target
 class Explorer(nn.Module):
     def __init__(self,
                  world_model: WorldModel,
+                 instrinsic_reward,
                  action_dim,
                  z_dim,
                  num_classes,
@@ -66,17 +68,7 @@ class Explorer(nn.Module):
         )
         self.target_critic.load_state_dict(self.critic.state_dict())
         
-        self.instrinsic_reward = EmsembleReward(
-            z_dim = z_dim,
-            num_classes = num_classes,
-            h_dim = h_dim,
-            min_std = min_std,
-            mlp_hidden_dim = mlp_hidden_dim,
-            device = device,
-            num_emsembles = num_emsembles,
-            offset = emsembles_offset,
-            target_mode = emsembles_target_mode
-        )
+        self.instrinsic_reward = instrinsic_reward
     
     def train(self, init_zs: torch.Tensor, init_hs: torch.Tensor, horison_length):
         zs = init_zs.detach() # (batch_size * seq_length, z_dim * num_classes)
@@ -114,7 +106,7 @@ class Explorer(nn.Module):
         value_dist = td.Independent(td.Normal(value_mean, 1),  1)
         critic_loss = -torch.mean(value_dist.log_prob(lambda_target.detach()).unsqueeze(-1))
         
-        return actor_loss, critic_loss
+        return actor_loss, critic_loss, OrderedDict(exp_actor_loss=actor_loss.item(), exp_critic_loss=critic_loss.item())
     
     def update_critic(self):
         self.target_critic.load_state_dict(self.critic.state_dict())

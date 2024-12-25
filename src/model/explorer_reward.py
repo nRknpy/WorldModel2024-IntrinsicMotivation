@@ -1,4 +1,5 @@
 from typing import Literal
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -77,4 +78,4 @@ class EmsembleReward(nn.Module):
         for f in self.emsembles:
             dist = f(input_)
             loss += -torch.mean(dist.log_prob(target))
-        return loss
+        return loss, OrderedDict(emsemble_loss=loss.item())

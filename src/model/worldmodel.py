@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,7 +6,6 @@ from torch.distributions import kl_divergence
 from einops import rearrange
 
 from .network import RSSM, ConvEncoder, ConvDecoder, Discount
-from .replay_buffer import LEXAReplayBuffer
 
 
 class WorldModel(nn.Module):
@@ -63,8 +63,8 @@ class WorldModel(nn.Module):
     
     def train(self, observations, actions):
         batch_size, seq_length, *_ = observations.shape
-        observations = rearrange(torch.from_numpy(observations).to(self.device), 'b t c h w -> t b c h w')
-        actions = rearrange(torch.from_numpy(actions).to(self.device), 'b t d -> t b d')
+        observations = rearrange(observations, 'b t c h w -> t b c h w')
+        actions = rearrange(actions, 'b t d -> t b d')
         
         embs = self.encoder(rearrange(observations, 't b c h w -> (t b) c h w'))
         embs = rearrange(embs, '(t b) d -> t b d')
@@ -95,7 +95,7 @@ class WorldModel(nn.Module):
         obs_loss = -torch.mean(obs_dist.log_prob(rearrange(observations[1:], 't b c h w -> (t b) c h w')))
         
         wm_loss = obs_loss + self.kl_loss_scale * kl_loss
-        return wm_loss, (zs, hs), dict(obs_loss=obs_loss, kl_loss=kl_loss)
+        return wm_loss, (zs, hs), OrderedDict(wm_loss=wm_loss.item(), obs_loss=obs_loss.item(), kl_loss=kl_loss.item())
 
     def imagine(self, action, z, h):
         next_h = self.rssm.recurrent(z, action, h)

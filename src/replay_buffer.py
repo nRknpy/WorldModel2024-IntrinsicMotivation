@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 
-class LEXAReplayBuffer:
+class ReplayBuffer:
     def __init__(self,
                  capacity,
                  observation_shape,
@@ -50,7 +50,7 @@ class LEXAReplayBuffer:
         return sampled_observations, sampled_actions, sampled_done
 
     def __len__(self):
-        return self.capacity if self.is_filled else self.index
+        return self.capacity if self.is_filled else self.idx
 
     def save(self, dir):
         dir = Path(dir)
