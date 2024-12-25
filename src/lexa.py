@@ -119,6 +119,8 @@ class LEXA:
                                          lr = cfg.learning.achiever_critic_lr,
                                          eps = cfg.learning.epsilon,
                                          weight_decay = cfg.learning.weight_decay)
+        
+        self.agent = Agent(self.world_model, self.explorer, self.achiever, self.device)
     
     def train(self, replay_buffer: ReplayBuffer):
         observations, actions, rewards, dones = replay_buffer.sample(
@@ -171,10 +173,6 @@ class LEXA:
         self.ach_reward_opt.step()
         
         return wm_metrics | emsemble_metrics | exp_metrics | ach_metrics
-    
-    @property
-    def agent(self):
-        return Agent(self.world_model, self.explorer, self.achiever, self.device)
 
 
 class Agent:
@@ -207,3 +205,6 @@ class Agent:
         self.h = self.world_model.rssm.recurrent(z, action, self.h)
         
         return action.squeeze().cpu().numpy()
+    
+    def reset(self):
+        self.h = torch.zeros(1, self.world_model.h_dim, device=self.device)
