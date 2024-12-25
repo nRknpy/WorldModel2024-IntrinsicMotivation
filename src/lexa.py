@@ -1,24 +1,23 @@
 from typing import Union, Literal
 import functools
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
 from gymnasium import Env
 
-from .config import Config
-from .model.worldmodel import WorldModel
-from .model.explorer import Explorer
-from .model.explorer_reward import EmsembleReward
-from .model.achiever import Achiever
-from .model.achiever_reward import LatentDistanceReward
-from .replay_buffer import ReplayBuffer
+from config import Config
+from model.worldmodel import WorldModel
+from model.explorer import Explorer
+from model.explorer_reward import EmsembleReward
+from model.achiever import Achiever
+from model.achiever_reward import LatentDistanceReward
+from replay_buffer import ReplayBuffer
 
 
 class LEXA:
     def __init__(self, cfg: Config, env: Env):
-        super(LEXA, self).__init__()
-        
         self.cfg = cfg
         self.env = env
         self.device = torch.device(self.cfg.device)
@@ -47,8 +46,8 @@ class LEXA:
             mlp_hidden_dim = cfg.model.explorer.mlp_hidden_dim,
             device = self.device,
             num_emsembles = cfg.model.explorer.num_emsembles,
-            emsembles_offset = cfg.model.explorer.emsembles_offset,
-            emsembles_target_mode = cfg.model.explorer.emsembles_target_mode,
+            offset = cfg.model.explorer.emsembles_offset,
+            target_mode = cfg.model.explorer.emsembles_target_mode,
         ).to(self.device)
         self.explorer = Explorer(
             world_model = self.world_model,
@@ -122,11 +121,7 @@ class LEXA:
         
         self.agent = Agent(self.world_model, self.explorer, self.achiever, self.device)
     
-    def train(self, replay_buffer: ReplayBuffer):
-        observations, actions, rewards, dones = replay_buffer.sample(
-            batch_size = self.cfg.data.batch_size,
-            seq_length = self.cfg.data.seq_length
-        )
+    def train(self, observations, actions):
         observations = torch.from_numpy(observations).to(self.device)
         actions = torch.from_numpy(actions).to(self.device)
         
@@ -173,6 +168,48 @@ class LEXA:
         self.ach_reward_opt.step()
         
         return wm_metrics | emsemble_metrics | exp_metrics | ach_metrics
+    
+    @staticmethod
+    def load(checkpoint):
+        cfg = checkpoint['config']
+        env = checkpoint['env']
+        output = LEXA(cfg, env)
+        output.world_model.load_state_dict(checkpoint['world_model'])
+        output.explorer_reward.load_state_dict(checkpoint['exp_reward'])
+        output.explorer.load_state_dict(checkpoint['explorer'])
+        output.achiever_reward.load_state_dict(checkpoint['ach_reward'])
+        output.achiever.load_state_dict(checkpoint['achiever'])
+        output.wm_opt.load_state_dict(checkpoint['wm_opt'])
+        output.exp_reward_opt.load_state_dict(checkpoint['exp_reward_opt'])
+        output.exp_actor_opt.load_state_dict(checkpoint['exp_actor_opt'])
+        output.exp_critic_opt.load_state_dict(checkpoint['exp_critic_opt'])
+        output.ach_reward_opt.load_state_dict(checkpoint['ach_reward_opt'])
+        output.ach_actor_opt.load_state_dict(checkpoint['ach_actor_opt'])
+        output.ach_critic_opt.load_state_dict(checkpoint['ach_critic_opt'])
+        return output
+    
+    def save(self, path):
+        path = Path(path)
+        path.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                'world_model': self.world_model.state_dict(),
+                'exp_reward': self.explorer_reward.state_dict(),
+                'explorer': self.explorer.state_dict(),
+                'ach_reward': self.achiever_reward.state_dict(),
+                'achiever': self.achiever.state_dict(),
+                'wm_opt': self.wm_opt.state_dict(),
+                'exp_reward_opt': self.exp_reward_opt.state_dict(),
+                'exp_actor_opt': self.exp_actor_opt.state_dict(),
+                'exp_critic_opt': self.exp_critic_opt.state_dict(),
+                'ach_reward_opt': self.ach_reward_opt.state_dict(),
+                'ach_actor_opt': self.ach_actor_opt.state_dict(),
+                'ach_critic_opt': self.ach_critic_opt.state_dict(),
+                'config': self.cfg,
+                'env': self.env,
+            },
+            path
+        )
 
 
 class Agent:

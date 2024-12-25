@@ -17,6 +17,7 @@ gymnasium = "*"
 mujoco = "*"
 gymnasium-robotics = "*"
 einops = "*"
+omegaconf = "*"
 
 [dev-packages]
 ipykernel = "*"

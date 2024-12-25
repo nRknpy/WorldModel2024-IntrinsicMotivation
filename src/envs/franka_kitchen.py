@@ -1,6 +1,7 @@
 from itertools import combinations
 import numpy as np
 from gymnasium import Env
+from gymnasium.spaces import Box
 from gymnasium.wrappers import AddRenderObservation, TimeLimit
 from gymnasium_robotics.envs.franka_kitchen.kitchen_env import KitchenEnv
 
@@ -9,7 +10,9 @@ class FrankaKichenEnv(Env):
     def __init__(self,
                  img_size,
                  action_repeat,
-                 time_limit):
+                 time_limit,
+                 seed):
+        self._seed = seed
         self._action_repeat = action_repeat
         self._base_env = KitchenEnv(render_mode='rgb_array',
                                     width=img_size,
@@ -17,22 +20,32 @@ class FrankaKichenEnv(Env):
                                     default_camera_config=dict(distance=1.86, lookat=[-0.3, .5, 2.], azimuth=90, elevation=-60))
         self._env = TimeLimit(self._base_env, time_limit)
         
-        self.observation_space = self._env.observation_space
+        self.observation_space = Box(0, 255, (img_size, img_size, 3), dtype=np.uint8)
         self.action_space = self._env.action_space
+        
+        self.action_space.seed(seed)
+        self.observation_space.seed(seed)
         
         self.obs_element_goals, self.obs_element_indices, self.goal_configs = get_kitchen_benchmark_goals()
         self.goals = list(range(len(self.obs_element_goals)))
-        self.goal_idx = 0
+        self.goal_idx = -1
+        
+        self._env.reset(seed=self._seed)
+        self.init_qpos = self._base_env.data.qpos.copy()
+        self.init_qvel = self._base_env.data.qvel.copy()
+        self.goal_rendered = False
     
     def reset(self):
-        self._env.reset()
+        self._env.reset(seed=self._seed)
+        self.goal_rendered = False
         return self._env.render()
     
     def step(self, action):
         total_reward = 0
         for step in range(self._action_repeat):
-            state, reward, truncatred, terminated, info = self._env.step(action)
-            done = truncatred or terminated
+            state, reward, terminated, truncated, info = self._env.step(action)
+            terminated = self.compute_success()
+            done = truncated or terminated
             total_reward += reward
             if done:
                 break
@@ -50,7 +63,57 @@ class FrankaKichenEnv(Env):
         self.goal_idx = idx
     
     def get_goal_obs(self):
-        pass
+        if self.goal_idx == -1:
+            return None
+        
+        if self.goal_rendered:
+            return self.rendered_goal_obs
+        
+        element_indices = self.obs_element_indices[self.goal_idx]
+        element_values = self.obs_element_goals[self.goal_idx]
+        
+        backup_qpos = self._base_env.data.qpos.copy()
+        backup_qvel = self._base_env.data.qvel.copy()
+        
+        qpos = self.init_qpos.copy()
+        qpos[element_indices] = element_values
+        self._base_env.robot_env.set_state(qpos, np.zeros_like(self.init_qvel))
+        
+        goal_obs = self._env.render()
+        
+        self._base_env.robot_env.set_state(backup_qpos, backup_qvel)
+        
+        self.goal_rendered = True
+        self.rendered_goal_obs = goal_obs
+        return goal_obs
+    
+    def compute_success(self):
+        if self.goal_idx == -1:
+            return False
+        
+        qpos = self._base_env.data.qpos.copy()
+        
+        element_indices = self.obs_element_indices[self.goal_idx]
+        element_values = self.obs_element_goals[self.goal_idx]
+        goal_qpos = self.init_qpos.copy()
+        goal_qpos[element_indices] = element_values
+        
+        per_obj_success = {
+            'bottom_burner' : ((qpos[9]<-0.38) and (goal_qpos[9]<-0.38)) or ((qpos[9]>-0.38) and (goal_qpos[9]>-0.38)),
+            'top_burner':    ((qpos[13]<-0.38) and (goal_qpos[13]<-0.38)) or ((qpos[13]>-0.38) and (goal_qpos[13]>-0.38)),
+            'light_switch':  ((qpos[17]<-0.25) and (goal_qpos[17]<-0.25)) or ((qpos[17]>-0.25) and (goal_qpos[17]>-0.25)),
+            'slide_cabinet' :  abs(qpos[19] - goal_qpos[19])<0.1,
+            'hinge_cabinet' :  abs(qpos[21] - goal_qpos[21])<0.2,
+            'microwave' :      abs(qpos[22] - goal_qpos[22])<0.2,
+            'kettle' : np.linalg.norm(qpos[23:25] - goal_qpos[23:25]) < 0.2
+        }
+        task_objects = self.goal_configs[self.goal_idx]
+        
+        success = 1
+        for _obj in task_objects:
+            success *= per_obj_success[_obj]
+        
+        return bool(success)
 
 def get_kitchen_benchmark_goals():
 
@@ -66,7 +129,7 @@ def get_kitchen_benchmark_goals():
                         'slide_cabinet':  [19],
                         'hinge_cabinet':  [20, 21],
                         'microwave'    :  [22],
-                        'kettle'       :  [23, 24, 25, 26, 27, 28]}
+                        'kettle'       :  [23, 24, 25, 26, 27, 28, 29]}
 
     base_task_names = [ 'bottom_burner', 'light_switch', 'slide_cabinet', 'hinge_cabinet', 'microwave', 'kettle' ]
 

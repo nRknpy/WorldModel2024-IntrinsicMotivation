@@ -50,7 +50,7 @@ class LEXAModelConfig:
 
 @dataclass
 class DataConfig:
-    buffer_size: int = 200_000
+    buffer_size: int = 2e6
     batch_size: int = 50
     seq_length: int = 50
     imagination_horizon: int = 15
@@ -58,6 +58,9 @@ class DataConfig:
 
 @dataclass
 class LearningConfig:
+    seed_steps: int = 5_000
+    num_steps: int = 1e7
+    expl_episode_freq: int = 2
     world_model_lr: float = 2e-4
     explorer_actor_lr: float = 4e-5
     explorer_critic_lr: float = 1e-4
@@ -67,9 +70,7 @@ class LearningConfig:
     weight_decay: float = 1e-6
     grad_clip: float = 100
     update_freq: int = 4
-    seed_iter: int = 5_000
-    eval_freq: int = 5
-    eval_episodes: int = 5
+    eval_episode_freq: int = 5
 
 
 @dataclass
@@ -81,10 +82,19 @@ class EnvConfig:
 
 
 @dataclass
+class WandbConfig:
+    logging: bool = False
+    name: str = 'lexa'
+    group: str = ''
+    project: str = 'LEXA'
+
+
+@dataclass
 class Config:
     model: LEXAModelConfig = LEXAModelConfig()
     env: EnvConfig = EnvConfig()
     data: DataConfig = DataConfig()
     learning: LearningConfig = LearningConfig()
+    wandb: WandbConfig = WandbConfig()
     device: str = 'cuda'
     seed: int = 0

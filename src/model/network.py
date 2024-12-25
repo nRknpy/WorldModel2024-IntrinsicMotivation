@@ -18,7 +18,7 @@ class RSSM(nn.Module):
                  num_layers_za2hidden=1,
                  num_layers_h2z=1,
                  min_std=0.1):
-        super(self, RSSM).__init__()
+        super(RSSM, self).__init__()
         
         self.z_dim = z_dim
         self.h_dim = h_dim
@@ -31,20 +31,20 @@ class RSSM(nn.Module):
         self.min_std = min_std
         
         self.za2hidden = nn.Sequential(
-            [nn.Sequential(nn.Linear(self.z_dim + self.action_dim, self.hidden_dim), nn.ELU())] + \
-            [nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim), nn.ELU()) for _ in range(self.num_layers_za2hidden - 1)]
+            *([nn.Sequential(nn.Linear(self.z_dim + self.action_dim, self.hidden_dim), nn.ELU())] + \
+            [nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim), nn.ELU()) for _ in range(self.num_layers_za2hidden - 1)])
         )
         self.transition = nn.GRUCell(self.hidden_dim, self.h_dim)
         
         self.prior_hidden = nn.Sequential(
-            [nn.Sequential(nn.Linear(self.h_dim, self.hidden_dim), nn.ELU())] + \
-            [nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim), nn.ELU()) for _ in range(self.num_layers_h2z - 1)]
+            *([nn.Sequential(nn.Linear(self.h_dim, self.hidden_dim), nn.ELU())] + \
+            [nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim), nn.ELU()) for _ in range(self.num_layers_h2z - 1)])
         )
         self.prior_logits = nn.Linear(self.hidden_dim, self.z_dim * self.num_classes)
         
         self.posterior_hidden = nn.Sequential(
-            [nn.Sequential(nn.Linear(self.h_dim + self.emb_dim, self.hidden_dim), nn.ELU())] + \
-            [nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim), nn.ELU()) for _ in range(self.num_layers_h2z - 1)]
+            *([nn.Sequential(nn.Linear(self.h_dim + self.emb_dim, self.hidden_dim), nn.ELU())] + \
+            [nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim), nn.ELU()) for _ in range(self.num_layers_h2z - 1)])
         )
         self.posterior_logits = nn.Linear(self.hidden_dim, self.z_dim * self.num_classes)
     
@@ -74,95 +74,62 @@ class RSSM(nn.Module):
         return posterior
 
 
-class ResidualBlock(nn.Module):
-    def __init__(self, input_size, in_channels, out_channels):
-        super(ResidualBlock, self).__init__()
-        
-        self.shortcut = nn.Sequential(nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1),
-                                      nn.LayerNorm([out_channels, input_size // 2, input_size // 2]))
-        self.block = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0),
-            nn.LayerNorm([in_channels // 2, input_size, input_size]),
-            nn.ReLU(),
-            nn.Conv2d(in_channels // 2, in_channels // 2, kernel_size=3, stride=2, padding=1),
-            nn.LayerNorm([in_channels // 2, input_size // 2, input_size // 2]),
-            nn.ReLU(),
-            nn.Conv2d(in_channels // 2, out_channels, kernel_size=1, stride=1, padding=0),
-            nn.LayerNorm([out_channels, input_size // 2, input_size // 2]),
-        )
-        self.act = nn.ReLU()
-    
-    def forward(self, x):
-        x1 = self.block(x)
-        x2 = self.shortcut(x)
-        return self.act(x1 + x2)
-
-
 class ConvEncoder(nn.Module):
     def __init__(self, input_size, emb_dim):
         super(ConvEncoder, self).__init__()
 
-        self.blocks = nn.Sequential(
-            ResidualBlock(input_size, 3, 64),
-            ResidualBlock(input_size // 2, 64, 128),
-            ResidualBlock(input_size // 4, 128, 256),
-            ResidualBlock(input_size // 8, 256, 256),
+        self.net = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1),
+            nn.LayerNorm([32, input_size // 2, input_size // 2]),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
+            nn.LayerNorm([64, input_size // 4, input_size // 4]),
+            nn.ReLU(),
+            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
+            nn.LayerNorm([128, input_size // 8, input_size // 8]),
+            nn.ReLU(),
+            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
+            nn.LayerNorm([256, input_size // 16, input_size // 16]),
+            nn.ReLU(),
         )
 
         self.fc = nn.Linear((input_size // 16) ** 2 * 256 , emb_dim)
 
     def forward(self, x):
-        for block in self.blocks:
-            x = block(x)
-        out = x.reshape(x.shape[0], -1)
-        out = self.fc(out)
-        return out
-
-
-class ResidualUpsampleBlock(nn.Module):
-    def __init__(self, input_size, in_channels, out_channels):
-        super(ResidualUpsampleBlock, self).__init__()
-
-        self.shortcut = nn.Sequential(
-            nn.ConvTranspose2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1, output_padding=1),
-            nn.LayerNorm([out_channels, input_size * 2, input_size * 2])
-        )
-        self.block = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels // 2, kernel_size=1, stride=1, padding=0),
-            nn.LayerNorm([in_channels // 2, input_size, input_size]),
-            nn.ReLU(),
-            nn.ConvTranspose2d(in_channels // 2, in_channels // 2, kernel_size=3, stride=2, padding=1, output_padding=1),
-            nn.LayerNorm([in_channels // 2, input_size * 2, input_size * 2]),
-            nn.ReLU(),
-            nn.Conv2d(in_channels // 2, out_channels, kernel_size=1, stride=1, padding=0),
-        )
-        self.act = nn.ReLU()
-
-    def forward(self, x):
-        x1 = self.block(x)
-        x2 = self.shortcut(x)
-        return self.act(x1 + x2)
+        x = self.net(x)
+        x = x.reshape(x.shape[0], -1)
+        x = self.fc(x)
+        return x
 
 
 class ConvDecoder(nn.Module):
-    def __init__(self, img_size, emb_dim):
+    def __init__(self, img_size, z_dim, num_classes, h_dim):
         super(ConvDecoder, self).__init__()
 
         self.img_size = img_size
-        self.fc = nn.Linear(emb_dim, (img_size // 16) ** 2 * 256)
-        self.blocks = nn.Sequential(
-            ResidualUpsampleBlock(img_size // 16, 256, 256),
-            ResidualUpsampleBlock(img_size // 8, 256, 128),
-            ResidualUpsampleBlock(img_size // 4, 128, 64),
-            ResidualUpsampleBlock(img_size // 2, 64, 3),
+        self.fc = nn.Sequential(
+            nn.Linear(z_dim * num_classes + h_dim, (img_size // 16) ** 2 * 256),
+            nn.LayerNorm([(img_size // 16) ** 2 * 256,]),
+            nn.ReLU()
+        )
+        self.net = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.LayerNorm([128, img_size // 8, img_size // 8]),
+            nn.ReLU(),
+            nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.LayerNorm([64, img_size // 4, img_size // 4]),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, padding=1, output_padding=1),
+            nn.LayerNorm([32, img_size // 2, img_size // 2]),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 3, kernel_size=3, stride=2, padding=1, output_padding=1),
         )
 
     def forward(self, z, h):
         x = torch.concat([z, h], dim=1)
         out = self.fc(x)
         out = out.reshape(out.shape[0], 256, self.img_size // 16, self.img_size // 16)
-        for block in self.blocks:
-            out = block(out)
+        out = self.net(out)
         dist = Independent(Normal(out, 1), 3)
         return dist
 
@@ -251,7 +218,7 @@ class ExplorerActor(nn.Module):
             nn.GELU(),
         )
         self.mean_fc = nn.Linear(hidden_dim, action_dim)
-        self.std_fc = nn.Linear(action_dim)
+        self.std_fc = nn.Linear(hidden_dim, action_dim)
     
     def forward(self, z, h, train=True):
         h = self.net(torch.concat([z, h], dim=1))

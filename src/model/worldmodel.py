@@ -58,7 +58,9 @@ class WorldModel(nn.Module):
         )
         self.decoder = ConvDecoder(
             img_size = img_size,
-            emb_dim = emb_dim
+            z_dim = z_dim,
+            num_classes = num_classes,
+            h_dim = h_dim
         )
     
     def train(self, observations, actions):
