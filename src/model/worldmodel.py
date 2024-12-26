@@ -69,7 +69,7 @@ class WorldModel(nn.Module):
         actions = rearrange(actions, 'b t d -> t b d')
         
         embs = self.encoder(rearrange(observations, 't b c h w -> (t b) c h w'))
-        embs = rearrange(embs, '(t b) d -> t b d')
+        embs = embs.view(seq_length, batch_size, -1)
         
         z = torch.zeros(batch_size, self.z_dim*self.num_classes, device=self.device)
         h = torch.zeros(batch_size, self.h_dim, device=self.device)

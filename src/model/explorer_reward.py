@@ -62,20 +62,19 @@ class EmsembleReward(nn.Module):
         return reward
     
     def train(self, zs, hs):
-        input_ = torch.concat([zs, hs], dim=2)
-
         if self.target_mode == 'z':
             target = zs
         elif self.target_mode == 'h':
             target = hs
         elif self.target_mode == 'zh':
-            target = input_
+            target = torch.concat([zs, hs], dim=2)
         
-        input_ = rearrange(input_[:-self.offset].detach(), 't b d -> (t b) d')
-        target = rearrange(input_[self.offset:].detach(), 't b d -> (t b) d')
+        input_zs = rearrange(zs[:-self.offset].detach(), 't b d -> (t b) d')
+        input_hs = rearrange(hs[:-self.offset].detach(), 't b d -> (t b) d')
+        target = rearrange(target[self.offset:].detach(), 't b d -> (t b) d')
         
         loss = 0
         for f in self.emsembles:
-            dist = f(input_)
+            dist = f(input_zs, input_hs)
             loss += -torch.mean(dist.log_prob(target))
         return loss, OrderedDict(emsemble_loss=loss.item())

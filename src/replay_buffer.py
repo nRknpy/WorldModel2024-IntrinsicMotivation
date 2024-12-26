@@ -18,7 +18,7 @@ class ReplayBuffer:
         self.done = np.zeros((capacity, 1), dtype=bool)
         
         self.idx = 0
-        self.if_filled = False
+        self.is_filled = False
     
     def push(self, observation, action, done):
         self.observations[self.idx] = observation

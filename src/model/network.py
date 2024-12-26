@@ -31,7 +31,7 @@ class RSSM(nn.Module):
         self.min_std = min_std
         
         self.za2hidden = nn.Sequential(
-            *([nn.Sequential(nn.Linear(self.z_dim + self.action_dim, self.hidden_dim), nn.ELU())] + \
+            *([nn.Sequential(nn.Linear(self.z_dim * self.num_classes + self.action_dim, self.hidden_dim), nn.ELU())] + \
             [nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim), nn.ELU()) for _ in range(self.num_layers_za2hidden - 1)])
         )
         self.transition = nn.GRUCell(self.hidden_dim, self.h_dim)

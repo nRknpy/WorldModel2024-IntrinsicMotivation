@@ -44,7 +44,7 @@ data:
   imagination_horizon: 15
 
 learning:
-  seed_steps: 5000
+  seed_steps: 1000
   num_steps: 10000000
   expl_episode_freq: 2
   world_model_lr: 0.0002
