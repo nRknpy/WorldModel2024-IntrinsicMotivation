@@ -44,7 +44,7 @@ class FrankaKichenEnv(Env):
         total_reward = 0
         for step in range(self._action_repeat):
             state, reward, terminated, truncated, info = self._env.step(action)
-            terminated = self.compute_success()
+            # terminated = self.compute_success()
             done = truncated or terminated
             total_reward += reward
             if done:

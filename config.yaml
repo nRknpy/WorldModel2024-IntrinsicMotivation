@@ -32,13 +32,13 @@ model:
     slow_critic_update: 100
 
 env:
-  task: 'FrankaKitchen-v1'
+  task: 'FrankaKitchen'
   img_size: 128
   action_repeat: 2
   time_limit: 1000
 
 data:
-  buffer_size: 200000
+  buffer_size: 2000
   batch_size: 50
   seq_length: 50
   imagination_horizon: 15

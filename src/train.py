@@ -30,7 +30,7 @@ def main(cfg):
     obs = env.reset()
     
     # seed steps
-    for step in range(cfg.learning.seed_steps):
+    for step in tqdm(range(cfg.learning.seed_steps), desc='seed steps'):
         action = env.action_space.sample()
         next_obs, reward, done, info = env.step(action)
         replay_buffer.push(preprocess_obs(obs), action, done)
@@ -43,7 +43,7 @@ def main(cfg):
     goal = None
     episodes = 0
     best_score = -1
-    for step in tqdm(range(cfg.learning.num_steps)):
+    for step in tqdm(range(cfg.learning.num_steps), desc='learning steps'):
         with torch.no_grad():
             if episodes % cfg.learning.expl_episode_freq == 0:
                 mode = 'explorer'
