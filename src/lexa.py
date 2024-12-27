@@ -231,7 +231,7 @@ class Agent:
         elif mode == 'achiever':
             policy = self.achiever.actor
             assert goal is not None, 'goal must be provided in achiever mode'
-            goal = torch.from_numpy(goal).to(self.device)
+            goal = torch.from_numpy(goal).unsqueeze(0).to(self.device)
             goal_emb = self.world_model.encoder(goal)
             policy = functools.partial(policy, goal_emb=goal_emb)
         

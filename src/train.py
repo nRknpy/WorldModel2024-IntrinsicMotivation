@@ -83,7 +83,7 @@ def main(cfg):
             obs = env.reset()
             lexa.agent.reset()
             goal, _, _ = replay_buffer.sample(1, 1)
-            goal = goal.squeeze(1)
+            goal = goal.squeeze((0, 1))
             if episodes % cfg.learning.eval_episode_freq == 0:
                 with torch.no_grad():
                     success = 0
@@ -91,9 +91,11 @@ def main(cfg):
                         eval_obs = eval_env.reset()
                         eval_env.set_goal_idx(goal_idx)
                         goal_obs = eval_env.get_goal_obs()
+                        goal_obs = preprocess_obs(goal_obs)
                         eval_done = False
                         while not eval_done:
-                            eval_action = lexa.agent(preprocess_obs(eval_obs), 'achiever', preprocess_obs(goal_obs), train=False)
+                            eval_obs = preprocess_obs(eval_obs)
+                            eval_action = lexa.agent(eval_obs, 'achiever', goal_obs, train=False)
                             eval_obs, eval_reward, eval_done, eval_info = eval_env.step(eval_action)
                         if eval_env.compute_success():
                             success += 1
