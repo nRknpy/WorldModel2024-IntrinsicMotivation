@@ -258,7 +258,7 @@ class ExplorerCritic(nn.Module):
         )
     
     def forward(self, z, h):
-        return self.net(torch.concat([z, h]), dim=1)
+        return self.net(torch.concat([z, h], dim=1))
 
 
 class State2Emb(nn.Module):

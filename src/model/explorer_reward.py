@@ -52,11 +52,10 @@ class EmsembleReward(nn.Module):
             )
     
     def compute_reward(self, z, h):
-        input_ = torch.concat([z, h], dim=1)
         preds = torch.empty(self.num_emsembles, z.shape[0], self.target_dim, device=self.device)
         for n in range(self.num_emsembles):
             f = self.emsembles[n]
-            preds[n] = f(input_).mean
+            preds[n] = f(z, h).mean
         var = torch.std(preds, dim=0)
         reward = torch.sum(var, dim=1)
         return reward
