@@ -82,7 +82,7 @@ class LatentDistanceReward(nn.Module):
         current_zs, current_hs = zs[current_idx[:,0], current_idx[:,1]], hs[current_idx[:,0], current_idx[:,1]]
         goal_zs, goal_hs = zs[goal_idx[:,0], goal_idx[:,1]], hs[goal_idx[:,0], goal_idx[:,1]]
         current_embs, goal_embs = self.state2emb(current_zs, current_hs).mean, self.state2emb(goal_zs, goal_hs).mean
-        target_distance = torch.from_numpy((goal_idx[:,0] - current_idx[:,0]) / zs.shape[0]).to(self.device, dtype=zs.dtype).unsqueeze(0)
+        target_distance = torch.from_numpy((goal_idx[:,0] - current_idx[:,0]) / zs.shape[0]).to(self.device, dtype=zs.dtype).unsqueeze(1)
         pred_distance = self.distance_estimator(current_embs, goal_embs)
         loss = F.mse_loss(pred_distance, target_distance)
         

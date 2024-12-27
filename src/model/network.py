@@ -190,7 +190,7 @@ class ExprolerStatePredictor(nn.Module):
     def forward(self, z, h):
         h = self.net(torch.concat([z, h], dim=1))
         mean = self.mean_fc(h)
-        std = self.std_fc(h) + self.min_std
+        std = torch.clamp(self.std_fc(h), 0) + self.min_std
         return Independent(Normal(mean, std), 1)
 
 
@@ -288,7 +288,7 @@ class State2Emb(nn.Module):
     def forward(self, z, h):
         h = self.net(torch.concat([z, h], dim=1))
         mean = self.mean_fc(h)
-        std = self.std_fc(h) + self.min_std
+        std = torch.clamp(self.std_fc(h), 0) + self.min_std
         return Independent(Normal(mean, std), 1)
 
 

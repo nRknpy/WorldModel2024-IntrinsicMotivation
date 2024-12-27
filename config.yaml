@@ -44,8 +44,8 @@ data:
   imagination_horizon: 15
 
 learning:
-  seed_steps: 1000
-  num_steps: 10000000
+  seed_steps: 5000
+  num_steps: 1000000
   expl_episode_freq: 2
   world_model_lr: 0.0002
   explorer_actor_lr: 0.00004
@@ -61,7 +61,7 @@ learning:
 wandb:
   logging: false
   name: 'lexa'
-  group: ''
+  group: 'vanilla'
   project: 'LEXA'
 
 device: 'cuda'

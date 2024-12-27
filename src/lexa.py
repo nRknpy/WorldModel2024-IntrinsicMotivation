@@ -191,7 +191,7 @@ class LEXA:
     
     def save(self, path):
         path = Path(path)
-        path.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
                 'world_model': self.world_model.state_dict(),

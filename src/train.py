@@ -23,10 +23,11 @@ def main(cfg):
     cfg = Config(**cfg)
     fix_seed(cfg.seed)
     
-    wandb.init(project=cfg.wandb.project,
-               group=cfg.wandb.group,
-               name=cfg.wandb.name,
-               config=asdict(cfg))
+    if cfg.wandb.logging:
+        wandb.init(project=cfg.wandb.project,
+                group=cfg.wandb.group,
+                name=cfg.wandb.name,
+                config=asdict(cfg))
     
     env = FrankaKichenEnv(cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit, cfg.seed)
     eval_env = FrankaKichenEnv(cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit, cfg.seed)
@@ -64,14 +65,15 @@ def main(cfg):
             replay_buffer.push(preprocess_obs(obs), action, done)
             obs = next_obs
         
-        if (step + 1) % cfg.learning.update_freq:
+        if (step + 1) % cfg.learning.update_freq == 0:
             observations, actions, done_flags = replay_buffer.sample(cfg.data.batch_size, cfg.data.seq_length)
             metrics = lexa.train(observations, actions)
-            wandb.log({'step': step + 1, 'episode': episodes} | metrics)
+            if cfg.wandb.logging:
+                wandb.log({'step': step + 1, 'episode': episodes} | metrics)
         
-        if (step + 1) % cfg.model.explorer.slow_critic_update:
+        if (step + 1) % cfg.model.explorer.slow_critic_update == 0:
             lexa.explorer.update_critic()
-        if (step + 1) % cfg.model.achiever.slow_critic_update:
+        if (step + 1) % cfg.model.achiever.slow_critic_update == 0:
             lexa.achiever.update_critic()
         
         if done:
@@ -82,7 +84,7 @@ def main(cfg):
             lexa.agent.reset()
             goal, _, _ = replay_buffer.sample(1, 1)
             goal = goal.squeeze(1)
-            if episodes % cfg.learning.eval_episode_freq:
+            if episodes % cfg.learning.eval_episode_freq == 0:
                 with torch.no_grad():
                     success = 0
                     for goal_idx in eval_env.goals:
@@ -97,7 +99,8 @@ def main(cfg):
                             success += 1
                     score = success / len(eval_env.goals)
                 print(f'steps: {step + 1}, episode: {episodes}, eval_score: {score}')
-                wandb.log({'step': step + 1, 'episode': episodes, 'eval_score': score})
+                if cfg.wandb.logging:
+                    wandb.log({'step': step + 1, 'episode': episodes, 'eval_score': score})
                 if score > best_score:
                     best_score = score
                     lexa.save(base_path / cfg.wandb.name / 'best')
