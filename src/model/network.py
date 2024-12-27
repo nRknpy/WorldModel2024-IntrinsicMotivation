@@ -262,13 +262,14 @@ class ExplorerCritic(nn.Module):
 
 
 class State2Emb(nn.Module):
-    def __init__(self, z_dim, num_classes, h_dim, emb_dim, hidden_dim=256):
+    def __init__(self, z_dim, num_classes, h_dim, emb_dim, min_std, hidden_dim=256):
         super(State2Emb, self).__init__()
         
         self.z_dim = z_dim
         self.num_classes = num_classes
         self.h_dim = h_dim
         self.emb_dim = emb_dim
+        self.min_std = min_std
         self.hidden_dim = hidden_dim
         
         self.net = nn.Sequential(
@@ -287,7 +288,7 @@ class State2Emb(nn.Module):
     def forward(self, z, h):
         h = self.net(torch.concat([z, h], dim=1))
         mean = self.mean_fc(h)
-        std = self.std_fc(h)
+        std = self.std_fc(h) + self.min_std
         return Independent(Normal(mean, std), 1)
 
 
@@ -320,7 +321,7 @@ class AchieverDistanceEstimator(nn.Module):
     def forward(self, current_emb, goal_emb):
         cur_h = self.current_fc(current_emb)
         goal_h = self.goal_fc(goal_emb)
-        return self.net(torch.concat([cur_h, goal_h]), dim=1)
+        return self.net(torch.concat([cur_h, goal_h], dim=1))
 
 
 class AchieverCritic(nn.Module):
@@ -350,9 +351,9 @@ class AchieverCritic(nn.Module):
         )
     
     def forward(self, z, h, goal_emb):
-        state_h = self.state_fc(torch.concat([z, h]), dim=1)
+        state_h = self.state_fc(torch.concat([z, h], dim=1))
         goal_h = self.goal_fc(goal_emb)
-        return self.net(torch.concat([state_h, goal_h]), dim=1)
+        return self.net(torch.concat([state_h, goal_h], dim=1))
 
 
 class AchieverActor(nn.Module):

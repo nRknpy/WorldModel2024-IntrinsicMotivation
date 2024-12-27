@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributions as td
-from einops import rearrange
+from einops import rearrange, repeat
 
 from .network import AchieverActor, AchieverCritic
 from .worldmodel import WorldModel
@@ -68,10 +68,12 @@ class Achiever(nn.Module):
         self.instrinsic_reward = instrinsic_reward
     
     def train(self, init_zs: torch.Tensor, init_hs: torch.Tensor, goal_observations: torch.Tensor, horison_length, num_positives, neg_sampling_factor, batch_seq_length):
-        goal_observations = rearrange(goal_observations, 'b t c h w -> (t b) c h w')
+        goal_observations = rearrange(goal_observations, 'b t c h w -> t b c h w')
+        goal_observations = rearrange(goal_observations[1:], 't b c h w -> (t b) c h w')
         shuffle_idx = torch.randperm(goal_observations.shape[0])
         goal_observations = goal_observations[shuffle_idx]
-        goal_embs = self.world_model.encoder(goal_observations)
+        with torch.no_grad():
+            goal_embs = self.world_model.encoder(goal_observations)
         
         zs = init_zs.detach() # (batch_size * seq_length, z_dim * num_classes)
         hs = init_hs.detach() # (batch_size * seq_length, h_dim)
@@ -94,17 +96,18 @@ class Achiever(nn.Module):
         
         flatten_hs = imagined_hs.view(-1, self.h_dim).detach() # (horison_length * batch_size * seq_length, h_dim)
         flatten_zs = imagined_zs.view(-1, self.z_dim * self.num_classes).detach() # (horison_length * batch_size * seq_length, z_dim * num_classes)
+        flatten_goal_embs = repeat(goal_embs, 'b d -> t b d', t=horison_length).reshape(-1, goal_embs.shape[-1]).detach()
         
         with torch.no_grad():
-            rewards = self.instrinsic_reward.compute_reward(flatten_zs, flatten_hs, goal_embs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
-            target_values = self.target_critic(flatten_zs, flatten_hs, goal_embs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
+            rewards = self.instrinsic_reward.compute_reward(flatten_zs, flatten_hs, flatten_goal_embs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
+            target_values = self.target_critic(flatten_zs, flatten_hs, flatten_goal_embs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
         
         lambda_target = compute_lambda_target(rewards, self.discount, target_values, self.lambda_)
         
         objective = imagined_action_log_probs * ((lambda_target - target_values).detach())
         actor_loss = -torch.sum(torch.mean(objective + self.actor_entropy_scale * imagined_action_entropys, dim=1))
         
-        value_mean = self.critic(flatten_zs.detach(), flatten_hs.detach()).view(horison_length, -1)
+        value_mean = self.critic(flatten_zs.detach(), flatten_hs.detach(), flatten_goal_embs.detach()).view(horison_length, -1)
         value_dist = td.Independent(td.Normal(value_mean, 1),  1)
         critic_loss = -torch.mean(value_dist.log_prob(lambda_target.detach()).unsqueeze(-1))
         

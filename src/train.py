@@ -1,9 +1,13 @@
+import os
+os.environ["MUJOCO_GL"] = "egl"
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from omegaconf import OmegaConf
 import numpy as np
 import torch
 from tqdm import tqdm
+import wandb
 
 from config import Config
 from lexa import LEXA
@@ -18,6 +22,11 @@ base_path = Path(__file__).parents[1] / 'outputs'
 def main(cfg):
     cfg = Config(**cfg)
     fix_seed(cfg.seed)
+    
+    wandb.init(project=cfg.wandb.project,
+               group=cfg.wandb.group,
+               name=cfg.wandb.name,
+               config=asdict(cfg))
     
     env = FrankaKichenEnv(cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit, cfg.seed)
     eval_env = FrankaKichenEnv(cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit, cfg.seed)
@@ -58,6 +67,7 @@ def main(cfg):
         if (step + 1) % cfg.learning.update_freq:
             observations, actions, done_flags = replay_buffer.sample(cfg.data.batch_size, cfg.data.seq_length)
             metrics = lexa.train(observations, actions)
+            wandb.log({'step': step + 1, 'episode': episodes} | metrics)
         
         if (step + 1) % cfg.model.explorer.slow_critic_update:
             lexa.explorer.update_critic()
@@ -65,7 +75,7 @@ def main(cfg):
             lexa.achiever.update_critic()
         
         if done:
-            print(f'steps: {step + 1}, episode: {episodes}, {metrics}')
+            print({'step': step + 1, 'episode': episodes} | metrics)
             lexa.save(base_path / cfg.wandb.name / f'{step + 1}')
             episodes += 1
             obs = env.reset()
@@ -87,6 +97,7 @@ def main(cfg):
                             success += 1
                     score = success / len(eval_env.goals)
                 print(f'steps: {step + 1}, episode: {episodes}, eval_score: {score}')
+                wandb.log({'step': step + 1, 'episode': episodes, 'eval_score': score})
                 if score > best_score:
                     best_score = score
                     lexa.save(base_path / cfg.wandb.name / 'best')

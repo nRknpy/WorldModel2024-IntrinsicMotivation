@@ -72,6 +72,7 @@ class LEXA:
             h_dim = cfg.model.world_model.h_dim,
             emb_dim = cfg.model.world_model.emb_dim,
             mlp_hidden_dim = cfg.model.achiever.mlp_hidden_dim,
+            min_std = cfg.model.achiever.min_std,
             device = self.device
         ).to(self.device)
         self.achiever = Achiever(

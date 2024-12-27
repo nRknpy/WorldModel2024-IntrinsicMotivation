@@ -18,6 +18,7 @@ mujoco = "*"
 gymnasium-robotics = "*"
 einops = "*"
 omegaconf = "*"
+wandb = "*"
 
 [dev-packages]
 ipykernel = "*"

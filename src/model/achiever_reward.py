@@ -15,6 +15,7 @@ class LatentDistanceReward(nn.Module):
                  h_dim,
                  emb_dim,
                  mlp_hidden_dim,
+                 min_std,
                  device):
         super(LatentDistanceReward, self).__init__()
         
@@ -30,6 +31,7 @@ class LatentDistanceReward(nn.Module):
             num_classes = num_classes,
             h_dim = h_dim,
             emb_dim = emb_dim,
+            min_std = min_std,
             hidden_dim = mlp_hidden_dim
         )
         
@@ -40,12 +42,12 @@ class LatentDistanceReward(nn.Module):
     
     def imagine_compute_reward(self, current_z, current_h, goal_z, goal_h):
         current_emb = self.state2emb(current_z, current_h)
-        goal_emb = self.state2emb(goal_z, goal_h)
+        goal_emb = self.state2emb(goal_z, goal_h).mean
         distance = self.distance_estimator(current_emb, goal_emb)
         return -distance
     
     def compute_reward(self, z, h, goal_emb):
-        current_emb = self.state2emb(z, h)
+        current_emb = self.state2emb(z, h).mean
         distance = self.distance_estimator(current_emb, goal_emb)
         return -distance
     
@@ -80,11 +82,11 @@ class LatentDistanceReward(nn.Module):
         current_zs, current_hs = zs[current_idx[:,0], current_idx[:,1]], hs[current_idx[:,0], current_idx[:,1]]
         goal_zs, goal_hs = zs[goal_idx[:,0], goal_idx[:,1]], hs[goal_idx[:,0], goal_idx[:,1]]
         current_embs, goal_embs = self.state2emb(current_zs, current_hs).mean, self.state2emb(goal_zs, goal_hs).mean
-        target_distance = (goal_idx[:,0] - current_idx[:,0]) / zs.shape[0]
+        target_distance = torch.from_numpy((goal_idx[:,0] - current_idx[:,0]) / zs.shape[0]).to(self.device, dtype=zs.dtype).unsqueeze(0)
         pred_distance = self.distance_estimator(current_embs, goal_embs)
         loss = F.mse_loss(pred_distance, target_distance)
         
-        num_negatives = num_positives * neg_sampling_factor
+        num_negatives = int(num_positives * neg_sampling_factor)
         current_idx, goal_idx = get_future_goal_idxs_neg_sampling(num_negatives, zs.shape[0], zs.shape[1])
         current_zs, current_hs = zs[current_idx[:,0], current_idx[:,1]], hs[current_idx[:,0], current_idx[:,1]]
         goal_zs, goal_hs = zs[goal_idx[:,0], goal_idx[:,1]], hs[goal_idx[:,0], goal_idx[:,1]]
