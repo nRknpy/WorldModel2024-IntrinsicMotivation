@@ -18,7 +18,7 @@ class FrankaKichenEnv(Env):
                                     width=img_size,
                                     height=img_size,
                                     default_camera_config=dict(distance=1.86, lookat=[-0.3, .5, 2.], azimuth=90, elevation=-60))
-        self._env = TimeLimit(self._base_env, time_limit)
+        self._env = TimeLimit(self._base_env, time_limit * action_repeat)
         
         self.observation_space = Box(0, 255, (img_size, img_size, 3), dtype=np.uint8)
         self.action_space = self._env.action_space
