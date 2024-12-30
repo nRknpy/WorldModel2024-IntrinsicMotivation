@@ -140,7 +140,7 @@ class LEXA:
         zs = zs.view(-1, self.cfg.model.world_model.z_dim * self.cfg.model.world_model.num_classes)
         hs = hs.view(-1, self.cfg.model.world_model.h_dim)
         
-        exp_actor_loss, axp_critic_loss, exp_metrics = self.explorer.train(zs, hs, self.cfg.data.imagination_horizon)
+        exp_actor_loss, axp_critic_loss, exp_metrics = self.explorer.train(zs, hs,observations, self.cfg.data.imagination_horizon)
         self.exp_actor_opt.zero_grad(True)
         exp_actor_loss.backward()
         clip_grad_norm_(self.explorer.actor.parameters(), self.cfg.learning.grad_clip)

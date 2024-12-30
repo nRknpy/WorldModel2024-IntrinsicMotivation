@@ -56,6 +56,18 @@ class WorldModel(nn.Module):
             input_size = img_size,
             emb_dim = emb_dim
         )
+
+        self.encoder_rnd_target = ConvEncoder(
+            input_size = img_size,
+            emb_dim = emb_dim
+        )
+
+        self.encoder_rnd_predictor = ConvEncoder(
+            input_size = img_size,
+            emb_dim = emb_dim
+        )
+
+
         self.decoder = ConvDecoder(
             img_size = img_size,
             z_dim = z_dim,
@@ -70,7 +82,7 @@ class WorldModel(nn.Module):
         
         embs = self.encoder(rearrange(observations, 't b c h w -> (t b) c h w'))
         embs = embs.view(seq_length, batch_size, -1)
-        
+
         z = torch.zeros(batch_size, self.z_dim*self.num_classes, device=self.device)
         h = torch.zeros(batch_size, self.h_dim, device=self.device)
         
