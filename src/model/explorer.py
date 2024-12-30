@@ -101,7 +101,18 @@ class Explorer(nn.Module):
         
         # ざっくりRND reward実装
         # todo 
-            # lossの計算の前にshapeを変えた方が良い。
+            # lossの計算の前にこんな感じでshapeを変えた方が良い。
+                # beta_t = self.beta * np.power(1. - self.kappa, time_steps)
+                # n_steps = rollouts['observations'].shape[0]
+                # n_envs = rollouts['observations'].shape[1]
+                # intrinsic_rewards = np.zeros(shape=(n_steps, n_envs, 1))
+                # with torch.no_grad():
+                #     for idx in range(n_envs):
+                #         src_feats = self.predictor(obs_tensor[:, idx])
+                #         tgt_feats = self.target(obs_tensor[:, idx])
+                #         dist = F.mse_loss(src_feats, tgt_feats, reduction='none').mean(dim=1)
+                #         dist = (dist - dist.min()) / (dist.max() - dist.min() + 1e-11)
+                #         intrinsic_rewards[:-1, idx, 0] = dist[1:].cpu().numpy()
             # rnd_rewardsのshapeを調整して、本家のrewardと足し合わせる
             # encoderとは別に、RND用のencoderを二つ用意しているが、これでいいのか？を検討
 
