@@ -99,7 +99,7 @@ class Explorer(nn.Module):
             rewards = self.instrinsic_reward.compute_reward(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
             # RNDの報酬計算
             rnd_rewards = self.rnd_reward.compute_reward(imagined_zs, imagined_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
-            # rewards = rewards + rnd_rewards #こんな感じでもともとのrewardに、RNDの報酬を足したい
+            rewards = rewards + rnd_rewards #こんな感じでもともとのrewardに、RNDの報酬を足したい
             target_values = self.target_critic(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
         
         lambda_target = compute_lambda_target(rewards, self.discount, target_values, self.lambda_)

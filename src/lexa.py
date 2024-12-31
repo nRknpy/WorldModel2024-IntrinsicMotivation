@@ -10,7 +10,7 @@ from gymnasium import Env
 from config import Config
 from model.worldmodel import WorldModel
 from model.explorer import Explorer
-from model.explorer_reward import EmsembleReward, RndReward
+from model.explorer_reward import EmsembleReward, RSSMRndReward, FeedForwardRndReward
 from model.achiever import Achiever
 from model.achiever_reward import LatentDistanceReward
 from replay_buffer import ReplayBuffer
@@ -50,19 +50,22 @@ class LEXA:
             target_mode = cfg.model.explorer.emsembles_target_mode,
         ).to(self.device)
 
-        self.explorer_rnd_reward = RndReward(
-            rnd_target= self.world_model.rssm_tartet,
-            rnd_predictor= self.world_model.rssm_predictor,
+        # self.explorer_rnd_reward = RSSMRndReward(
+        #     rnd_target= self.world_model.rssm_tartet,
+        #     rnd_predictor= self.world_model.rssm_predictor,
+        #     z_dim = cfg.model.world_model.z_dim,
+        #     num_classes = cfg.model.world_model.num_classes,
+        #     h_dim = cfg.model.world_model.h_dim,
+        #     device = self.device,
+        #     target_mode = cfg.model.explorer.emsembles_target_mode,
+        # ).to(self.device)
+        self.explorer_rnd_reward = FeedForwardRndReward(
             z_dim = cfg.model.world_model.z_dim,
             num_classes = cfg.model.world_model.num_classes,
             h_dim = cfg.model.world_model.h_dim,
             min_std = cfg.model.world_model.min_std,
             mlp_hidden_dim = cfg.model.explorer.mlp_hidden_dim,
-            device = self.device,
-            num_emsembles = cfg.model.explorer.num_emsembles,
-            offset = cfg.model.explorer.emsembles_offset,
-            target_mode = cfg.model.explorer.emsembles_target_mode,
-        ).to(self.device)
+        )
 
         self.explorer = Explorer(
             world_model = self.world_model,
@@ -111,7 +114,7 @@ class LEXA:
                                  lr = cfg.learning.world_model_lr,
                                  eps = cfg.learning.epsilon,
                                  weight_decay = cfg.learning.weight_decay)
-        self.exp_reward_opt = optim.Adam(self.explorer_reward.parameters(),
+        self.exp_reward_opt = optim.Adam(list(self.explorer_reward.parameters()) + list(self.explorer_rnd_reward.parameters()),
                                          lr = cfg.learning.world_model_lr,
                                          eps = cfg.learning.epsilon,
                                          weight_decay = cfg.learning.weight_decay)
@@ -144,12 +147,14 @@ class LEXA:
         
         wm_loss, (zs, hs), wm_metrics = self.world_model.train(observations, actions)
         emsemble_loss, emsemble_metrics = self.explorer_reward.train(zs, hs)
+        rnd_loss, rnd_metrics = self.explorer_rnd_reward.train(zs, hs)
         self.wm_opt.zero_grad(True)
         wm_loss.backward()
         clip_grad_norm_(self.world_model.parameters(), self.cfg.learning.grad_clip)
         self.wm_opt.step()
         self.exp_reward_opt.zero_grad(True)
         emsemble_loss.backward()
+        rnd_loss.backward()
         clip_grad_norm_(self.explorer_reward.parameters(), self.cfg.learning.grad_clip)
         self.exp_reward_opt.step()
         
@@ -184,7 +189,7 @@ class LEXA:
         clip_grad_norm_(self.achiever_reward.parameters(), self.cfg.learning.grad_clip)
         self.ach_reward_opt.step()
         
-        return wm_metrics | emsemble_metrics | exp_metrics | ach_metrics
+        return wm_metrics | emsemble_metrics | rnd_metrics | exp_metrics | ach_metrics
     
     @staticmethod
     def load(checkpoint):

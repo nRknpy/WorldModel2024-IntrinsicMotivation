@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-from .network import ExprolerStatePredictor
+from .network import ExprolerStatePredictor, RNDModule
 from torch.distributions import Normal, kl_divergence
 from torch import optim
 from torch.nn import functional as F
@@ -84,30 +84,19 @@ class EmsembleReward(nn.Module):
         return loss, OrderedDict(emsemble_loss=loss.item())
     
 
-class RndReward(nn.Module):
+class RSSMRndReward(nn.Module):
     def __init__(self,
                  rnd_target,
                  rnd_predictor,
                  z_dim,
                  num_classes,
                  h_dim,
-                 min_std,
-                 mlp_hidden_dim,
                  device,
-                 num_emsembles = 10,
-                 offset = 1,
                  target_mode: Literal['z', 'h', 'zh'] = 'z'):
-        super(EmsembleReward, self).__init__()
+        super(RSSMRndReward, self).__init__()
         self.rnd_target=rnd_target
         self.rnd_predictor=rnd_predictor
-        # self.z_dim = z_dim
-        # self.num_classes = num_classes
-        # self.h_dim = h_dim
-        # self.min_std = min_std
-        # self.num_emsembles = num_emsembles
-        # self.offset = offset
-        # self.target_mode = target_mode
-        # self.mlp_hidden_dim = mlp_hidden_dim
+        
         self.device = device
         self.lr= 0.001 #適当
         self.opt = optim.Adam(lr=self.lr, params=self.rnd_predictor.parameters())
@@ -179,12 +168,12 @@ class RndReward(nn.Module):
                 reward += kl_loss_h +kl_loss_z
             reward /= len(imagined_zs)*2
         
-        self.update(imagined_zs, imagined_hs)
+        # self.update(imagined_zs, imagined_hs)
 
         return torch.tensor(reward)
  
 
-    def update(self, imagined_zs, imagined_hs):
+    def train(self, imagined_zs, imagined_hs):
 
         dataset = TensorDataset(imagined_zs,imagined_hs)
         loader = DataLoader(dataset=dataset, batch_size=self.batch_size, drop_last=True)
@@ -198,3 +187,38 @@ class RndReward(nn.Module):
             loss.backward()
             self.opt.step()
 
+
+class FeedForwardRndReward(nn.Module):
+    def __init__(self,
+                 z_dim,
+                 num_classes,
+                 h_dim,
+                 min_std,
+                 mlp_hidden_dim):
+        super(FeedForwardRndReward, self).__init__()
+        
+        self.z_dim = z_dim
+        self.num_classes = num_classes
+        self.h_dim = h_dim
+        self.min_std = min_std
+        self.hidden_dim = mlp_hidden_dim
+        
+        self.rnd_predictor = RNDModule(z_dim, num_classes, h_dim, 256, min_std, mlp_hidden_dim)
+        self.rnd_target = RNDModule(z_dim, num_classes, h_dim, 256, min_std, mlp_hidden_dim).requires_grad_(False)
+    
+    def compute_reward(self, z, h):
+        predictor_dist = self.rnd_predictor(z, h)
+        target_dist = self.rnd_target(z, h, detach=True)
+        reward = 0.5 * torch.mean(kl_divergence(predictor_dist, target_dist) + kl_divergence(target_dist, predictor_dist), dim=1)
+        return reward
+    
+    def train(self, zs, hs):
+        input_zs = rearrange(zs.detach(), 't b d -> (t b) d')
+        input_hs = rearrange(hs.detach(), 't b d -> (t b) d')
+        
+        predictor_dist = self.rnd_predictor(input_zs, input_hs)
+        with torch.no_grad():
+            target_dist = self.rnd_target(input_zs, input_hs, detach=True)
+        
+        loss = 0.5 * torch.mean(kl_divergence(predictor_dist, target_dist) + kl_divergence(target_dist, predictor_dist))
+        return loss, OrderedDict(rnd_loss=loss.item())

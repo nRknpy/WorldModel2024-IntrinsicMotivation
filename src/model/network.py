@@ -400,3 +400,34 @@ class AchieverActor(nn.Module):
         else:
             action = dist.mean
         return action, None, None
+
+
+class RNDModule(nn.Module):
+    def __init__(self, z_dim, num_classes, h_dim, output_dim, min_std, hidden_dim=256):
+        super(RNDModule, self).__init__()
+        
+        self.z_dim = z_dim
+        self.num_classes = num_classes
+        self.h_dim = h_dim
+        self.output_dim = output_dim
+        self.hidden_dim = hidden_dim
+        self.min_std = min_std
+        
+        self.net = nn.Sequential(
+            nn.Linear(z_dim * num_classes + h_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.GELU(),
+        )
+        self.mean_fc = nn.Linear(hidden_dim, output_dim)
+        self.std_fc = nn.Linear(hidden_dim, output_dim)
+    
+    def forward(self, z, h, detach=False):
+        x = self.net(torch.concat([z, h], dim=1))
+        mean = self.mean_fc(x)
+        std = torch.clamp(self.std_fc(x), 0) + self.min_std
+        if detach:
+            return Independent(Normal(mean.detach(), std.detach()), 1)
+        return Independent(Normal(mean, std), 1)
