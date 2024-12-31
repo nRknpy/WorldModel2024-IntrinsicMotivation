@@ -5,7 +5,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
-from .network import ExprolerStatePredictor
+from .network import ExprolerStatePredictor, RNDModule
+from torch.distributions import Normal, kl_divergence
+from torch import optim
+from torch.nn import functional as F
+from torch.utils.data import TensorDataset, DataLoader
+
 
 
 class EmsembleReward(nn.Module):
@@ -77,3 +82,143 @@ class EmsembleReward(nn.Module):
             dist = f(input_zs, input_hs)
             loss += -torch.mean(dist.log_prob(target))
         return loss, OrderedDict(emsemble_loss=loss.item())
+    
+
+class RSSMRndReward(nn.Module):
+    def __init__(self,
+                 rnd_target,
+                 rnd_predictor,
+                 z_dim,
+                 num_classes,
+                 h_dim,
+                 device,
+                 target_mode: Literal['z', 'h', 'zh'] = 'z'):
+        super(RSSMRndReward, self).__init__()
+        self.rnd_target=rnd_target
+        self.rnd_predictor=rnd_predictor
+        
+        self.device = device
+        self.lr= 0.001 #適当
+        self.opt = optim.Adam(lr=self.lr, params=self.rnd_predictor.parameters())
+        
+        if target_mode == 'z':
+            self.target_dim = z_dim * num_classes
+        elif target_mode == 'h':
+            self.target_dim = h_dim
+        elif target_mode == 'zh':
+            self.target_dim = z_dim * num_classes + h_dim
+
+    def imagine(self, network, action, z, h):
+        next_h = network.recurrent(z, action, h)
+        next_prior = network.prior(next_h)
+        next_z = next_prior.rsample().flatten(1)
+        return next_h, next_z    
+
+    # 特徴ベクトルを分布に変換する関数
+    def to_distribution(features):
+        """
+        特徴ベクトルを分布の平均と分散に変換
+        Args:
+            features: Tensor (batch_size * seq_length, feature_dim)
+        Returns:
+            mean: 平均
+            std: 標準偏差
+        """
+        # TODO  バッチごとに平均と分散を計算するような処理に変える
+        mean, log_std = features.chunk(2, dim=-1)  # 分布のパラメータに分割
+        std = torch.exp(log_std)  # 標準偏差を計算 (expで戻す)
+        return mean, std
+
+    # KL ダイバージェンスを計算する関数
+    def compute_kl_divergence(self,rnd_target_feature, rnd_predictor_feature, h_dim):
+        """
+        rnd_target_next_h と rnd_predictor_next_h の間の KL ダイバージェンスを計算
+        Args:
+            rnd_target: Tensor (batch_size * seq_length, h_dim)
+            rnd_predictor: Tensor (batch_size * seq_length, h_dim)
+            h_dim: 次元数
+        Returns:
+            kl_loss: KL ダイバージェンスの損失
+        """
+        # zやhを分布に変換
+        # TODO target_modeなどを使って、zとhの両方に対応できるように書き換える
+
+        target_mean, target_std = self.to_distribution(rnd_target_feature)
+        predictor_mean, predictor_std = self.to_distribution(rnd_predictor_feature)
+
+        # 分布を定義
+        target_distribution = Normal(target_mean, target_std)
+        predictor_distribution = Normal(predictor_mean, predictor_std)
+
+        # KL ダイバージェンスを計算
+        kl_loss = kl_divergence(target_distribution, predictor_distribution).mean()  # 平均を取る
+        return kl_loss
+
+    #報酬を計算
+    def compute_rnd_reward(self, imagined_zs, imagined_hs):
+        reward=0
+        with torch.no_grad():
+            for i in range(len(imagined_zs)):
+                rnd_target_next_h, rnd_target_next_z = self.imagine(self.rnd_target,imagined_zs[i],imagined_hs[i])
+                rnd_predictor_next_h, rnd_predictor_next_z = self.imagine(self.rnd_predictor,imagined_zs[i],imagined_hs[i])
+                
+                # KL ダイバージェンスを計算
+                kl_loss_h = self.compute_kl_divergence(rnd_target_next_h, rnd_predictor_next_h)
+                kl_loss_z = self.compute_kl_divergence(rnd_target_next_z, rnd_predictor_next_z)
+                reward += kl_loss_h +kl_loss_z
+            reward /= len(imagined_zs)*2
+        
+        # self.update(imagined_zs, imagined_hs)
+
+        return torch.tensor(reward)
+ 
+
+    def train(self, imagined_zs, imagined_hs):
+
+        dataset = TensorDataset(imagined_zs,imagined_hs)
+        loader = DataLoader(dataset=dataset, batch_size=self.batch_size, drop_last=True)
+
+        # RNDのネットワークの更新。targetは更新しない。
+        for idx, (z,h) in enumerate(loader):
+            rnd_target_next_h, rnd_target_next_z = self.imagine(self.rnd_target,z,h)
+            rnd_predictor_next_h, rnd_predictor_next_z = self.imagine(self.rnd_predictor,z,h)
+            loss = self.compute_kl_divergence(rnd_target_next_h, rnd_predictor_next_h)+self.compute_kl_divergence(rnd_target_next_z, rnd_predictor_next_z)
+            self.opt.zero_grad()
+            loss.backward()
+            self.opt.step()
+
+
+class FeedForwardRndReward(nn.Module):
+    def __init__(self,
+                 z_dim,
+                 num_classes,
+                 h_dim,
+                 min_std,
+                 mlp_hidden_dim):
+        super(FeedForwardRndReward, self).__init__()
+        
+        self.z_dim = z_dim
+        self.num_classes = num_classes
+        self.h_dim = h_dim
+        self.min_std = min_std
+        self.hidden_dim = mlp_hidden_dim
+        
+        self.rnd_predictor = RNDModule(z_dim, num_classes, h_dim, 256, min_std, mlp_hidden_dim)
+        self.rnd_target = RNDModule(z_dim, num_classes, h_dim, 256, min_std, mlp_hidden_dim).requires_grad_(False)
+    
+    def compute_reward(self, z, h):
+        predictor_dist = self.rnd_predictor(z, h)
+        target_dist = self.rnd_target(z, h, detach=True)
+        reward = 0.5 * torch.mean(kl_divergence(predictor_dist, target_dist) + kl_divergence(target_dist, predictor_dist), dim=1)
+        return reward
+    
+    def train(self, zs, hs):
+        input_zs = rearrange(zs.detach(), 't b d -> (t b) d')
+        input_hs = rearrange(hs.detach(), 't b d -> (t b) d')
+        
+        predictor_dist = self.rnd_predictor(input_zs, input_hs)
+        with torch.no_grad():
+            target_dist = self.rnd_target(input_zs, input_hs, detach=True)
+        
+        loss = 0.5 * torch.mean(kl_divergence(predictor_dist, target_dist) + kl_divergence(target_dist, predictor_dist))
+        return loss, OrderedDict(rnd_loss=loss.item())

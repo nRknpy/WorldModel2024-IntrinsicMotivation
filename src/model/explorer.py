@@ -7,14 +7,14 @@ from einops import rearrange
 
 from .network import ExplorerActor, ExplorerCritic
 from .worldmodel import WorldModel
-from .explorer_reward import EmsembleReward
+from .explorer_reward import EmsembleReward, RndReward
 from .utils import compute_lambda_target
-
 
 class Explorer(nn.Module):
     def __init__(self,
                  world_model: WorldModel,
                  instrinsic_reward,
+                 rnd_reward,
                  action_dim,
                  z_dim,
                  num_classes,
@@ -45,6 +45,7 @@ class Explorer(nn.Module):
         self.lambda_ = lambda_
         self.actor_entropy_scale = actor_entropy_scale
         self.device = device
+
         
         self.actor = ExplorerActor(
             action_dim = action_dim,
@@ -69,6 +70,7 @@ class Explorer(nn.Module):
         self.target_critic.load_state_dict(self.critic.state_dict())
         
         self.instrinsic_reward = instrinsic_reward
+        self.rnd_reward=rnd_reward
     
     def train(self, init_zs: torch.Tensor, init_hs: torch.Tensor, horison_length):
         zs = init_zs.detach() # (batch_size * seq_length, z_dim * num_classes)
@@ -92,9 +94,12 @@ class Explorer(nn.Module):
         
         flatten_hs = imagined_hs.view(-1, self.h_dim).detach() # (horison_length * batch_size * seq_length, h_dim)
         flatten_zs = imagined_zs.view(-1, self.z_dim * self.num_classes).detach() # (horison_length * batch_size * seq_length, z_dim * num_classes)
-        
+
         with torch.no_grad():
             rewards = self.instrinsic_reward.compute_reward(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
+            # RNDの報酬計算
+            rnd_rewards = self.rnd_reward.compute_reward(imagined_zs, imagined_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
+            rewards = rewards + rnd_rewards #こんな感じでもともとのrewardに、RNDの報酬を足したい
             target_values = self.target_critic(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
         
         mean_rewards = torch.mean(torch.sum(rewards, dim=0), dim=0)

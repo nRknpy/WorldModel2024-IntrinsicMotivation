@@ -52,10 +52,36 @@ class WorldModel(nn.Module):
             num_layers_h2z = num_layers_h2z,
             min_std = min_std
         )
+
+        self.rssm_target = RSSM(
+            z_dim = z_dim,
+            num_classes = num_classes,
+            h_dim = h_dim,
+            hidden_dim = hidden_dim,
+            emb_dim = emb_dim,
+            action_dim = action_dim,
+            num_layers_za2hidden = num_layers_za2hidden,
+            num_layers_h2z = num_layers_h2z,
+            min_std = min_std
+        )
+
+        self.rssm_predictor = RSSM(
+            z_dim = z_dim,
+            num_classes = num_classes,
+            h_dim = h_dim,
+            hidden_dim = hidden_dim,
+            emb_dim = emb_dim,
+            action_dim = action_dim,
+            num_layers_za2hidden = num_layers_za2hidden,
+            num_layers_h2z = num_layers_h2z,
+            min_std = min_std
+        )
+
         self.encoder = ConvEncoder(
             input_size = img_size,
             emb_dim = emb_dim
         )
+
         self.decoder = ConvDecoder(
             img_size = img_size,
             z_dim = z_dim,
@@ -79,7 +105,7 @@ class WorldModel(nn.Module):
         
         embs = self.encoder(rearrange(observations, 't b c h w -> (t b) c h w'))
         embs = embs.view(seq_length, batch_size, -1)
-        
+
         z = torch.zeros(batch_size, self.z_dim*self.num_classes, device=self.device)
         h = torch.zeros(batch_size, self.h_dim, device=self.device)
         
