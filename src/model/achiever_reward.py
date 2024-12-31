@@ -10,14 +10,16 @@ from .network import AchieverDistanceEstimator, State2Emb
 
 class LatentDistanceReward(nn.Module):
     def __init__(self,
+                 state2emb: State2Emb,
                  z_dim,
                  num_classes,
                  h_dim,
                  emb_dim,
                  mlp_hidden_dim,
-                 min_std,
                  device):
         super(LatentDistanceReward, self).__init__()
+        
+        self.state2emb = state2emb
         
         self.z_dim = z_dim
         self.num_classes = num_classes
@@ -26,22 +28,13 @@ class LatentDistanceReward(nn.Module):
         self.mlp_hidden_dim = mlp_hidden_dim
         self.device = device
         
-        self.state2emb = State2Emb(
-            z_dim = z_dim,
-            num_classes = num_classes,
-            h_dim = h_dim,
-            emb_dim = emb_dim,
-            min_std = min_std,
-            hidden_dim = mlp_hidden_dim
-        )
-        
         self.distance_estimator = AchieverDistanceEstimator(
             emb_dim = emb_dim,
             hidden_dim = mlp_hidden_dim
         )
     
     def imagine_compute_reward(self, current_z, current_h, goal_z, goal_h):
-        current_emb = self.state2emb(current_z, current_h)
+        current_emb = self.state2emb(current_z, current_h).mean
         goal_emb = self.state2emb(goal_z, goal_h).mean
         distance = self.distance_estimator(current_emb, goal_emb)
         return -distance
@@ -51,12 +44,7 @@ class LatentDistanceReward(nn.Module):
         distance = self.distance_estimator(current_emb, goal_emb)
         return -distance
     
-    def train_state2emb(self, zs, hs, target_embs):
-        embs_dist = self.state2emb(zs, hs)
-        loss = -torch.mean(embs_dist.log_prob(target_embs))
-        return loss
-    
-    def train_distance_estimator(self, zs, hs, num_positives, neg_sampling_factor, batch_length):
+    def train(self, zs, hs, num_positives, neg_sampling_factor, batch_length):
         def get_future_goal_idxs(seq_len, bs):
             cur_idx_list = []
             goal_idx_list = []

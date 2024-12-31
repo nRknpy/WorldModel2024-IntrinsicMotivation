@@ -67,12 +67,12 @@ class LEXA:
             device = self.device
         ).to(self.device)
         self.achiever_reward = LatentDistanceReward(
+            self.world_model.state2emb,
             z_dim = cfg.model.world_model.z_dim,
             num_classes = cfg.model.world_model.num_classes,
             h_dim = cfg.model.world_model.h_dim,
             emb_dim = cfg.model.world_model.emb_dim,
             mlp_hidden_dim = cfg.model.achiever.mlp_hidden_dim,
-            min_std = cfg.model.achiever.min_std,
             device = self.device
         ).to(self.device)
         self.achiever = Achiever(
@@ -126,14 +126,16 @@ class LEXA:
         observations = torch.from_numpy(observations).to(self.device)
         actions = torch.from_numpy(actions).to(self.device)
         
-        wm_loss, (zs, hs), wm_metrics = self.world_model.train(observations, actions)
-        emsemble_loss, emsemble_metrics = self.explorer_reward.train(zs, hs)
+        wm_loss, s2e_loss, (zs, hs), wm_metrics = self.world_model.train(observations, actions)
+        exp_reward_loss, exp_reward_metrics = self.explorer_reward.train(zs, hs)
+        
         self.wm_opt.zero_grad(True)
         wm_loss.backward()
+        s2e_loss.backward()
         clip_grad_norm_(self.world_model.parameters(), self.cfg.learning.grad_clip)
         self.wm_opt.step()
         self.exp_reward_opt.zero_grad(True)
-        emsemble_loss.backward()
+        exp_reward_loss.backward()
         clip_grad_norm_(self.explorer_reward.parameters(), self.cfg.learning.grad_clip)
         self.exp_reward_opt.step()
         
@@ -168,7 +170,7 @@ class LEXA:
         clip_grad_norm_(self.achiever_reward.parameters(), self.cfg.learning.grad_clip)
         self.ach_reward_opt.step()
         
-        return wm_metrics | emsemble_metrics | exp_metrics | ach_metrics
+        return wm_metrics | exp_reward_metrics | exp_metrics | ach_metrics
     
     @staticmethod
     def load(checkpoint):

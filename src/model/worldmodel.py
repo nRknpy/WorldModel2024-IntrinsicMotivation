@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.distributions import kl_divergence
 from einops import rearrange
 
-from .network import RSSM, ConvEncoder, ConvDecoder, Discount
+from .network import RSSM, ConvEncoder, ConvDecoder, Discount, State2Emb
 
 
 class WorldModel(nn.Module):
@@ -62,6 +62,15 @@ class WorldModel(nn.Module):
             num_classes = num_classes,
             h_dim = h_dim
         )
+        
+        self.state2emb = State2Emb(
+            z_dim = z_dim,
+            num_classes = num_classes,
+            h_dim = h_dim,
+            emb_dim = emb_dim,
+            min_std = min_std,
+            hidden_dim = mlp_hidden_dim
+        )
     
     def train(self, observations, actions):
         batch_size, seq_length, *_ = observations.shape
@@ -91,13 +100,18 @@ class WorldModel(nn.Module):
         
         flatten_hs = hs.view(-1, self.h_dim)
         flatten_zs = zs.view(-1, self.z_dim * self.num_classes)
+        flatten_embs = embs.view(-1, self.emb_dim)
         
         obs_dist = self.decoder(flatten_zs, flatten_hs)
         
         obs_loss = -torch.mean(obs_dist.log_prob(rearrange(observations[1:], 't b c h w -> (t b) c h w')))
         
         wm_loss = obs_loss + self.kl_loss_scale * kl_loss
-        return wm_loss, (zs, hs), OrderedDict(wm_loss=wm_loss.item(), obs_loss=obs_loss.item(), kl_loss=kl_loss.item())
+        
+        pred_embs_dist = self.state2emb(flatten_zs.detach(), flatten_hs.detach())
+        s2e_loss = -torch.mean(pred_embs_dist.log_prob(flatten_embs.detach()))
+        
+        return wm_loss, s2e_loss, (zs, hs), OrderedDict(wm_loss=wm_loss.item(), obs_loss=obs_loss.item(), kl_loss=kl_loss.item(), state2emb_loss=s2e_loss.item())
 
     def imagine(self, action, z, h):
         next_h = self.rssm.recurrent(z, action, h)
