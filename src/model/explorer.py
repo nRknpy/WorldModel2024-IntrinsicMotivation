@@ -72,7 +72,7 @@ class Explorer(nn.Module):
         self.instrinsic_reward = instrinsic_reward
         self.rnd_reward=rnd_reward
     
-    def train(self, init_zs: torch.Tensor, init_hs: torch.Tensor, observations: torch.Tensor,horison_length):
+    def train(self, init_zs: torch.Tensor, init_hs: torch.Tensor, horison_length):
         zs = init_zs.detach() # (batch_size * seq_length, z_dim * num_classes)
         hs = init_hs.detach() # (batch_size * seq_length, h_dim)
         
