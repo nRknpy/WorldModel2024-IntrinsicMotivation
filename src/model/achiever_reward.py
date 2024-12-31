@@ -44,7 +44,7 @@ class LatentDistanceReward(nn.Module):
         distance = self.distance_estimator(current_emb, goal_emb)
         return -distance
     
-    def train(self, zs, hs, num_positives, neg_sampling_factor, batch_length):
+    def train(self, zs, hs, num_positives, neg_sampling_factor, horison_length, batch_size, batch_length):
         def get_future_goal_idxs(seq_len, bs):
             cur_idx_list = []
             goal_idx_list = []
@@ -64,22 +64,22 @@ class LatentDistanceReward(nn.Module):
         
         zs, hs = zs.detach(), hs.detach()
         
-        current_idxs, goal_idxs = get_future_goal_idxs(zs.shape[0], zs.shape[1])
+        current_idxs, goal_idxs = get_future_goal_idxs(horison_length, batch_size)
         idx = np.random.choice(np.arange(len(current_idxs)), num_positives, replace=False)
         current_idx, goal_idx = current_idxs[idx], goal_idxs[idx]
         current_zs, current_hs = zs[current_idx[:,0], current_idx[:,1]], hs[current_idx[:,0], current_idx[:,1]]
         goal_zs, goal_hs = zs[goal_idx[:,0], goal_idx[:,1]], hs[goal_idx[:,0], goal_idx[:,1]]
         current_embs, goal_embs = self.state2emb(current_zs, current_hs).mean, self.state2emb(goal_zs, goal_hs).mean
-        target_distance = torch.from_numpy((goal_idx[:,0] - current_idx[:,0]) / zs.shape[0]).to(self.device, dtype=zs.dtype).unsqueeze(1)
-        pred_distance = self.distance_estimator(current_embs, goal_embs)
+        target_distance = torch.from_numpy((goal_idx[:,0] - current_idx[:,0]) / horison_length).to(self.device, dtype=zs.dtype).unsqueeze(1)
+        pred_distance = self.distance_estimator(current_embs.detach(), goal_embs.detach())
         loss = F.mse_loss(pred_distance, target_distance)
         
         num_negatives = int(num_positives * neg_sampling_factor)
-        current_idx, goal_idx = get_future_goal_idxs_neg_sampling(num_negatives, zs.shape[0], zs.shape[1])
+        current_idx, goal_idx = get_future_goal_idxs_neg_sampling(num_negatives, horison_length, batch_size)
         current_zs, current_hs = zs[current_idx[:,0], current_idx[:,1]], hs[current_idx[:,0], current_idx[:,1]]
         goal_zs, goal_hs = zs[goal_idx[:,0], goal_idx[:,1]], hs[goal_idx[:,0], goal_idx[:,1]]
         current_embs, goal_embs = self.state2emb(current_zs, current_hs).mean, self.state2emb(goal_zs, goal_hs).mean
-        target_distance = torch.ones(num_negatives, 1, device=self.device) * zs.shape[0]
-        pred_distance = self.distance_estimator(current_embs, goal_embs)
+        target_distance = torch.ones(num_negatives, 1, device=self.device) * horison_length
+        pred_distance = self.distance_estimator(current_embs.detach(), goal_embs.detach())
         loss += F.mse_loss(pred_distance, target_distance)
         return loss

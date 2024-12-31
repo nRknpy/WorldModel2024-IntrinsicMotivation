@@ -111,7 +111,7 @@ class Achiever(nn.Module):
         value_dist = td.Independent(td.Normal(value_mean, 1),  1)
         critic_loss = -torch.mean(value_dist.log_prob(lambda_target.detach()).unsqueeze(-1))
         
-        distance_estimator_loss = self.instrinsic_reward.train(imagined_zs, imagined_hs, num_positives, neg_sampling_factor, batch_seq_length)
+        distance_estimator_loss = self.instrinsic_reward.train(imagined_zs, imagined_hs, num_positives, neg_sampling_factor, horison_length, zs.shape[1], batch_seq_length)
         
         return actor_loss, critic_loss, distance_estimator_loss, OrderedDict(ach_actor_loss=actor_loss.item(), ach_critic_loss=critic_loss.item(), distance_estimator_loss=distance_estimator_loss.item())
     
