@@ -100,7 +100,7 @@ class WorldModel(nn.Module):
         
         flatten_hs = hs.view(-1, self.h_dim)
         flatten_zs = zs.view(-1, self.z_dim * self.num_classes)
-        flatten_embs = embs.view(-1, self.emb_dim)
+        flatten_embs = embs[1:].view(-1, self.emb_dim)
         
         obs_dist = self.decoder(flatten_zs, flatten_hs)
         
