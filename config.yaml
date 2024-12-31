@@ -60,7 +60,7 @@ learning:
 
 wandb:
   logging: true
-  name: 'vanilla'
+  name: 'frankakitchen-vanilla'
   group: 'frankakitchen'
   project: 'LEXA'
 
