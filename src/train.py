@@ -79,7 +79,7 @@ def main(cfg):
         if done:
             print({'step': step + 1, 'episode': episodes} | metrics)
             episodes += 1
-            if episodes % 100 == 0:
+            if episodes % cfg.learning.model_save_episode_freq == 0:
                 lexa.save(base_path / cfg.wandb.name / f'{step + 1}')
             obs = env.reset()
             lexa.agent.reset()

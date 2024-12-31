@@ -57,6 +57,7 @@ learning:
   grad_clip: 100
   update_freq: 5
   eval_episode_freq: 5
+  model_save_episode_freq: 100
 
 wandb:
   logging: true
