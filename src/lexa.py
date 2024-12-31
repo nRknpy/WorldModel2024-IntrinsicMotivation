@@ -10,7 +10,7 @@ from gymnasium import Env
 from config import Config
 from model.worldmodel import WorldModel
 from model.explorer import Explorer
-from model.explorer_reward import EmsembleReward
+from model.explorer_reward import EmsembleReward, RndReward
 from model.achiever import Achiever
 from model.achiever_reward import LatentDistanceReward
 from replay_buffer import ReplayBuffer
@@ -49,9 +49,25 @@ class LEXA:
             offset = cfg.model.explorer.emsembles_offset,
             target_mode = cfg.model.explorer.emsembles_target_mode,
         ).to(self.device)
+
+        self.explorer_rnd_reward = RndReward(
+            rnd_target= self.world_model.rssm_tartet,
+            rnd_predictor= self.world_model.rssm_predictor,
+            z_dim = cfg.model.world_model.z_dim,
+            num_classes = cfg.model.world_model.num_classes,
+            h_dim = cfg.model.world_model.h_dim,
+            min_std = cfg.model.world_model.min_std,
+            mlp_hidden_dim = cfg.model.explorer.mlp_hidden_dim,
+            device = self.device,
+            num_emsembles = cfg.model.explorer.num_emsembles,
+            offset = cfg.model.explorer.emsembles_offset,
+            target_mode = cfg.model.explorer.emsembles_target_mode,
+        ).to(self.device)
+
         self.explorer = Explorer(
             world_model = self.world_model,
             instrinsic_reward = self.explorer_reward,
+            rnd_reward = self.explorer_rnd_reward,
             action_dim = self.env.action_space.shape[0],
             z_dim = cfg.model.world_model.z_dim,
             num_classes = cfg.model.world_model.num_classes,

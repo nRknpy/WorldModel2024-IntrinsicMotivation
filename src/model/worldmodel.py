@@ -52,21 +52,35 @@ class WorldModel(nn.Module):
             num_layers_h2z = num_layers_h2z,
             min_std = min_std
         )
+
+        self.rssm_target = RSSM(
+            z_dim = z_dim,
+            num_classes = num_classes,
+            h_dim = h_dim,
+            hidden_dim = hidden_dim,
+            emb_dim = emb_dim,
+            action_dim = action_dim,
+            num_layers_za2hidden = num_layers_za2hidden,
+            num_layers_h2z = num_layers_h2z,
+            min_std = min_std
+        )
+
+        self.rssm_predictor = RSSM(
+            z_dim = z_dim,
+            num_classes = num_classes,
+            h_dim = h_dim,
+            hidden_dim = hidden_dim,
+            emb_dim = emb_dim,
+            action_dim = action_dim,
+            num_layers_za2hidden = num_layers_za2hidden,
+            num_layers_h2z = num_layers_h2z,
+            min_std = min_std
+        )
+
         self.encoder = ConvEncoder(
             input_size = img_size,
             emb_dim = emb_dim
         )
-
-        self.encoder_rnd_target = ConvEncoder(
-            input_size = img_size,
-            emb_dim = emb_dim
-        )
-
-        self.encoder_rnd_predictor = ConvEncoder(
-            input_size = img_size,
-            emb_dim = emb_dim
-        )
-
 
         self.decoder = ConvDecoder(
             img_size = img_size,

@@ -7,18 +7,14 @@ from einops import rearrange
 
 from .network import ExplorerActor, ExplorerCritic
 from .worldmodel import WorldModel
-from .explorer_reward import EmsembleReward
+from .explorer_reward import EmsembleReward, RndReward
 from .utils import compute_lambda_target
-from torch import optim
-
-from torch.nn import functional as F
-from torch.utils.data import TensorDataset, DataLoader
-
 
 class Explorer(nn.Module):
     def __init__(self,
                  world_model: WorldModel,
                  instrinsic_reward,
+                 rnd_reward,
                  action_dim,
                  z_dim,
                  num_classes,
@@ -49,8 +45,7 @@ class Explorer(nn.Module):
         self.lambda_ = lambda_
         self.actor_entropy_scale = actor_entropy_scale
         self.device = device
-        self.lr= 0.001 #適当
-        self.opt = optim.Adam(lr=self.lr, params=self.world_model.encoder_rnd_predictor.parameters())
+
         
         self.actor = ExplorerActor(
             action_dim = action_dim,
@@ -75,6 +70,7 @@ class Explorer(nn.Module):
         self.target_critic.load_state_dict(self.critic.state_dict())
         
         self.instrinsic_reward = instrinsic_reward
+        self.rnd_reward=rnd_reward
     
     def train(self, init_zs: torch.Tensor, init_hs: torch.Tensor, observations: torch.Tensor,horison_length):
         zs = init_zs.detach() # (batch_size * seq_length, z_dim * num_classes)
@@ -98,46 +94,11 @@ class Explorer(nn.Module):
         
         flatten_hs = imagined_hs.view(-1, self.h_dim).detach() # (horison_length * batch_size * seq_length, h_dim)
         flatten_zs = imagined_zs.view(-1, self.z_dim * self.num_classes).detach() # (horison_length * batch_size * seq_length, z_dim * num_classes)
-        
-        # ざっくりRND reward実装
-        # todo 
-            # lossの計算の前にこんな感じでshapeを変えた方が良い。
-                # beta_t = self.beta * np.power(1. - self.kappa, time_steps)
-                # n_steps = rollouts['observations'].shape[0]
-                # n_envs = rollouts['observations'].shape[1]
-                # intrinsic_rewards = np.zeros(shape=(n_steps, n_envs, 1))
-                # with torch.no_grad():
-                #     for idx in range(n_envs):
-                #         src_feats = self.predictor(obs_tensor[:, idx])
-                #         tgt_feats = self.target(obs_tensor[:, idx])
-                #         dist = F.mse_loss(src_feats, tgt_feats, reduction='none').mean(dim=1)
-                #         dist = (dist - dist.min()) / (dist.max() - dist.min() + 1e-11)
-                #         intrinsic_rewards[:-1, idx, 0] = dist[1:].cpu().numpy()
-            # rnd_rewardsのshapeを調整して、本家のrewardと足し合わせる
-            # encoderとは別に、RND用のencoderを二つ用意しているが、これでいいのか？を検討
-
-        # RNDの報酬の計算
-        with torch.no_grad():
-            embs_encoder_rnd_target = self.world_model.encoder_rnd_target(rearrange(observations, 't b c h w -> (t b) c h w'))
-            embs_encoder_rnd_predictor = self.world_model.encoder_rnd_predictor(rearrange(observations, 't b c h w -> (t b) c h w'))            
-            rnd_rewards = F.mse_loss(embs_encoder_rnd_target -embs_encoder_rnd_predictor)
-
-        dataset = TensorDataset(observations)
-        loader = DataLoader(dataset=dataset, batch_size=self.batch_size, drop_last=True)
-
-        # RNDのネットワークの更新。
-        # encoder_rnd_targetは学習しない。観測されたobservationについては、学習によりencoder_rnd_predictorがencoder_rnd_targetに近づくため上記の報酬が小さくなる
-        for idx, batch_data in enumerate(loader):
-            batch_obs = batch_data[0]
-            src_feats = self.world_model.encoder_rnd_target(rearrange(batch_obs, 't b c h w -> (t b) c h w'))
-            tgt_feats = self.world_model.encoder_rnd_target(rearrange(batch_obs, 't b c h w -> (t b) c h w'))
-            loss = F.mse_loss(src_feats, tgt_feats)
-            self.opt.zero_grad()
-            loss.backward()
-            self.opt.step()
 
         with torch.no_grad():
             rewards = self.instrinsic_reward.compute_reward(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
+            # RNDの報酬計算
+            rnd_rewards = self.rnd_reward.compute_reward(imagined_zs, imagined_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
             # rewards = rewards + rnd_rewards #こんな感じでもともとのrewardに、RNDの報酬を足したい
             target_values = self.target_critic(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
         
