@@ -135,13 +135,13 @@ class RndReward(nn.Module):
             mean: 平均
             std: 標準偏差
         """
-        #ここはバッチごとに平均と分散を計算するような処理に変えた方が良い
+        # TODO  バッチごとに平均と分散を計算するような処理に変える
         mean, log_std = features.chunk(2, dim=-1)  # 分布のパラメータに分割
         std = torch.exp(log_std)  # 標準偏差を計算 (expで戻す)
         return mean, std
 
     # KL ダイバージェンスを計算する関数
-    def compute_kl_divergence(self,rnd_target, rnd_predictor, h_dim):
+    def compute_kl_divergence(self,rnd_target_feature, rnd_predictor_feature, h_dim):
         """
         rnd_target_next_h と rnd_predictor_next_h の間の KL ダイバージェンスを計算
         Args:
@@ -151,9 +151,11 @@ class RndReward(nn.Module):
         Returns:
             kl_loss: KL ダイバージェンスの損失
         """
-        # rnd_target と rnd_predictor を分布に変換
-        target_mean, target_std = self.to_distribution(rnd_target)
-        predictor_mean, predictor_std = self.to_distribution(rnd_predictor)
+        # zやhを分布に変換
+        # TODO target_modeなどを使って、zとhの両方に対応できるように書き換える
+
+        target_mean, target_std = self.to_distribution(rnd_target_feature)
+        predictor_mean, predictor_std = self.to_distribution(rnd_predictor_feature)
 
         # 分布を定義
         target_distribution = Normal(target_mean, target_std)
@@ -163,7 +165,7 @@ class RndReward(nn.Module):
         kl_loss = kl_divergence(target_distribution, predictor_distribution).mean()  # 平均を取る
         return kl_loss
 
-
+    #報酬を計算
     def compute_rnd_reward(self, imagined_zs, imagined_hs):
         reward=0
         with torch.no_grad():
@@ -186,9 +188,8 @@ class RndReward(nn.Module):
 
         dataset = TensorDataset(imagined_zs,imagined_hs)
         loader = DataLoader(dataset=dataset, batch_size=self.batch_size, drop_last=True)
-        dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
 
-        # RNDのネットワークの更新。
+        # RNDのネットワークの更新。targetは更新しない。
         for idx, (z,h) in enumerate(loader):
             rnd_target_next_h, rnd_target_next_z = self.imagine(self.rnd_target,z,h)
             rnd_predictor_next_h, rnd_predictor_next_z = self.imagine(self.rnd_predictor,z,h)
