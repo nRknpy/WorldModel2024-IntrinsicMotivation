@@ -62,7 +62,7 @@ class EmsembleReward(nn.Module):
             f = self.emsembles[n]
             preds[n] = f(z, h).mean
         var = torch.std(preds, dim=0)
-        reward = torch.sum(var, dim=1)
+        reward = torch.mean(var, dim=1)
         return reward
     
     def train(self, zs, hs):

@@ -102,6 +102,8 @@ class Achiever(nn.Module):
             rewards = self.instrinsic_reward.compute_reward(flatten_zs, flatten_hs, flatten_goal_embs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
             target_values = self.target_critic(flatten_zs, flatten_hs, flatten_goal_embs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
         
+        mean_rewards = torch.mean(torch.sum(rewards, dim=0), dim=0)
+        
         lambda_target = compute_lambda_target(rewards, self.discount, target_values, self.lambda_)
         
         objective = imagined_action_log_probs * ((lambda_target - target_values).detach())
@@ -111,9 +113,9 @@ class Achiever(nn.Module):
         value_dist = td.Independent(td.Normal(value_mean, 1),  1)
         critic_loss = -torch.mean(value_dist.log_prob(lambda_target.detach()).unsqueeze(-1))
         
-        distance_estimator_loss = self.instrinsic_reward.train_distance_estimator(imagined_zs, imagined_hs, num_positives, neg_sampling_factor, batch_seq_length)
+        distance_estimator_loss = self.instrinsic_reward.train(imagined_zs, imagined_hs, num_positives, neg_sampling_factor, horison_length, zs.shape[1], batch_seq_length)
         
-        return actor_loss, critic_loss, distance_estimator_loss, OrderedDict(ach_actor_loss=actor_loss.item(), ach_critic_loss=critic_loss.item(), distance_estimator_loss=distance_estimator_loss.item())
+        return actor_loss, critic_loss, distance_estimator_loss, OrderedDict(ach_actor_loss=actor_loss.item(), ach_critic_loss=critic_loss.item(), distance_estimator_loss=distance_estimator_loss.item(), achiever_imag_reward=mean_rewards.item())
     
     def update_critic(self):
         self.target_critic.load_state_dict(self.critic.state_dict())

@@ -71,6 +71,7 @@ class LearningConfig:
     grad_clip: float = 100
     update_freq: int = 4
     eval_episode_freq: int = 5
+    model_save_episode_freq: int = 100
 
 
 @dataclass
