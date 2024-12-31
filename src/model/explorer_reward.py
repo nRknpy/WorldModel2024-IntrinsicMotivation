@@ -209,7 +209,7 @@ class FeedForwardRndReward(nn.Module):
     def compute_reward(self, z, h):
         predictor_dist = self.rnd_predictor(z, h)
         target_dist = self.rnd_target(z, h, detach=True)
-        reward = 0.5 * torch.mean(kl_divergence(predictor_dist, target_dist) + kl_divergence(target_dist, predictor_dist), dim=1)
+        reward = 0.5 * (kl_divergence(predictor_dist, target_dist) + kl_divergence(target_dist, predictor_dist))
         return reward
     
     def train(self, zs, hs):

@@ -6,9 +6,10 @@ import torch.nn.functional as F
 from einops import rearrange
 
 from .network import AchieverDistanceEstimator, State2Emb
+from .worldmodel import WorldModel
 
 
-class LatentDistanceReward(nn.Module):
+class TemporalLatentDistanceReward(nn.Module):
     def __init__(self,
                  state2emb: State2Emb,
                  z_dim,
@@ -17,7 +18,7 @@ class LatentDistanceReward(nn.Module):
                  emb_dim,
                  mlp_hidden_dim,
                  device):
-        super(LatentDistanceReward, self).__init__()
+        super(TemporalLatentDistanceReward, self).__init__()
         
         self.state2emb = state2emb
         
@@ -83,3 +84,32 @@ class LatentDistanceReward(nn.Module):
         pred_distance = self.distance_estimator(current_embs.detach(), goal_embs.detach())
         loss += F.mse_loss(pred_distance, target_distance)
         return loss
+
+
+class CosineLatentDistanceReward(nn.Module):
+    def __init__(self,
+                 worldmodel: WorldModel,
+                 z_dim,
+                 num_classes,
+                 h_dim,
+                 device):
+        super(CosineLatentDistanceReward, self).__init__()
+        
+        self.worldmodel = worldmodel
+        self.z_dim = z_dim
+        self.num_classes = num_classes
+        self.h_dim = h_dim
+        self.device = device
+        
+    def compute_reward(self, z, h, goal_emb):
+        batch_size = z.shape[0]
+        init_h = torch.zeros(batch_size, self.h_dim, device=self.device)
+        
+        current_state = z
+        goal_state = self.worldmodel.rssm.posterior(init_h, goal_emb).mean.flatten(1)
+        norm = torch.norm(current_state, dim=1) * torch.norm(goal_state, dim=1)
+        dot_prod = (current_state * goal_state).sum(dim=1)
+        return dot_prod / (norm + 1e-8)
+    
+    def train(self, *args):
+        return 0

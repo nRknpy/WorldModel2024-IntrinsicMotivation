@@ -10,7 +10,7 @@ model:
     mlp_hidden_dim: 400
     min_std: 0.1
     kl_balance_alpha: 0.8
-    kl_loss_scale: 0.02
+    kl_loss_scale: 0.05
   explorer:
     num_emsembles: 10
     emsembles_offset: 1
@@ -61,7 +61,7 @@ learning:
 
 wandb:
   logging: true
-  name: 'frankakitchen-vanilla'
+  name: 'frankakitchen-RND'
   group: 'frankakitchen'
   project: 'LEXA'
 
