@@ -10,7 +10,7 @@ model:
     mlp_hidden_dim: 400
     min_std: 0.1
     kl_balance_alpha: 0.8
-    kl_loss_scale: 0.1
+    kl_loss_scale: 0.02
   explorer:
     num_emsembles: 10
     emsembles_offset: 1
@@ -19,7 +19,7 @@ model:
     min_std: 0.1
     discount: 0.99
     lambda_: 0.95
-    actor_entropy_scale: 0.0001
+    actor_entropy_scale: 0.001
     slow_critic_update: 100
   achiever:
     num_positives: 256
@@ -28,7 +28,7 @@ model:
     min_std: 0.1
     discount: 0.99
     lambda_: 0.95
-    actor_entropy_scale: 0.0001
+    actor_entropy_scale: 0.001
     slow_critic_update: 100
 
 env:
@@ -39,7 +39,7 @@ env:
 
 data:
   buffer_size: 2000000
-  batch_size: 45
+  batch_size: 50
   seq_length: 50
   imagination_horizon: 15
 
@@ -49,13 +49,13 @@ learning:
   expl_episode_freq: 2
   world_model_lr: 0.0003
   explorer_actor_lr: 0.00008
-  explorer_critic_lr: 0.00008
+  explorer_critic_lr: 0.0001
   achiever_actor_lr: 0.00008
-  achiever_critic_lr: 0.00008
+  achiever_critic_lr: 0.0001
   epsilon: 0.00001
   weight_decay: 0.000001
   grad_clip: 100
-  update_freq: 5
+  update_freq: 4
   eval_episode_freq: 5
   model_save_episode_freq: 100
 
