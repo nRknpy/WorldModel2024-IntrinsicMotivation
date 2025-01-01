@@ -223,7 +223,7 @@ class LEXA:
         output.exp_reward_opt.load_state_dict(checkpoint['exp_reward_opt'])
         output.exp_actor_opt.load_state_dict(checkpoint['exp_actor_opt'])
         output.exp_critic_opt.load_state_dict(checkpoint['exp_critic_opt'])
-        output.ach_reward_opt.load_state_dict(checkpoint['ach_reward_opt'])
+        # output.ach_reward_opt.load_state_dict(checkpoint['ach_reward_opt'])
         output.ach_actor_opt.load_state_dict(checkpoint['ach_actor_opt'])
         output.ach_critic_opt.load_state_dict(checkpoint['ach_critic_opt'])
         return output
@@ -243,7 +243,7 @@ class LEXA:
                 'exp_reward_opt': self.exp_reward_opt.state_dict(),
                 'exp_actor_opt': self.exp_actor_opt.state_dict(),
                 'exp_critic_opt': self.exp_critic_opt.state_dict(),
-                'ach_reward_opt': self.ach_reward_opt.state_dict(),
+                # 'ach_reward_opt': self.ach_reward_opt.state_dict(),
                 'ach_actor_opt': self.ach_actor_opt.state_dict(),
                 'ach_critic_opt': self.ach_critic_opt.state_dict(),
                 'config': self.cfg,
