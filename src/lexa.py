@@ -39,17 +39,17 @@ class LEXA:
             device = self.device
         ).to(self.device)
         
-        # self.explorer_reward = EmsembleReward(
-        #     z_dim = cfg.model.world_model.z_dim,
-        #     num_classes = cfg.model.world_model.num_classes,
-        #     h_dim = cfg.model.world_model.h_dim,
-        #     min_std = cfg.model.world_model.min_std,
-        #     mlp_hidden_dim = cfg.model.explorer.mlp_hidden_dim,
-        #     device = self.device,
-        #     num_emsembles = cfg.model.explorer.num_emsembles,
-        #     offset = cfg.model.explorer.emsembles_offset,
-        #     target_mode = cfg.model.explorer.emsembles_target_mode,
-        # ).to(self.device)
+        self.explorer_reward = EmsembleReward(
+            z_dim = cfg.model.world_model.z_dim,
+            num_classes = cfg.model.world_model.num_classes,
+            h_dim = cfg.model.world_model.h_dim,
+            min_std = cfg.model.world_model.min_std,
+            mlp_hidden_dim = cfg.model.explorer.mlp_hidden_dim,
+            device = self.device,
+            num_emsembles = cfg.model.explorer.num_emsembles,
+            offset = cfg.model.explorer.emsembles_offset,
+            target_mode = cfg.model.explorer.emsembles_target_mode,
+        ).to(self.device)
         # self.explorer_rnd_reward = RSSMRndReward(
         #     rnd_target= self.world_model.rssm_tartet,
         #     rnd_predictor= self.world_model.rssm_predictor,
@@ -59,18 +59,19 @@ class LEXA:
         #     device = self.device,
         #     target_mode = cfg.model.explorer.emsembles_target_mode,
         # ).to(self.device)
-        self.explorer_rnd_reward = FeedForwardRndReward(
-            z_dim = cfg.model.world_model.z_dim,
-            num_classes = cfg.model.world_model.num_classes,
-            h_dim = cfg.model.world_model.h_dim,
-            min_std = cfg.model.world_model.min_std,
-            mlp_hidden_dim = cfg.model.explorer.mlp_hidden_dim,
-        )
+        # self.explorer_rnd_reward = FeedForwardRndReward(
+        #     z_dim = cfg.model.world_model.z_dim,
+        #     num_classes = cfg.model.world_model.num_classes,
+        #     h_dim = cfg.model.world_model.h_dim,
+        #     min_std = cfg.model.world_model.min_std,
+        #     mlp_hidden_dim = cfg.model.explorer.mlp_hidden_dim,
+        # )
         self.explorer = Explorer(
             world_model = self.world_model,
-            # instrinsic_reward = self.explorer_reward,
-            instrinsic_reward = None,
-            rnd_reward = self.explorer_rnd_reward,
+            instrinsic_reward = self.explorer_reward,
+            # instrinsic_reward = None,
+            # rnd_reward = self.explorer_rnd_reward,
+            rnd_reward = None,
             action_dim = self.env.action_space.shape[0],
             z_dim = cfg.model.world_model.z_dim,
             num_classes = cfg.model.world_model.num_classes,
@@ -122,7 +123,8 @@ class LEXA:
                                  lr = cfg.learning.world_model_lr,
                                  eps = cfg.learning.epsilon,
                                  weight_decay = cfg.learning.weight_decay)
-        self.exp_reward_opt = optim.Adam(self.explorer_rnd_reward.parameters(),
+        self.exp_reward_opt = optim.Adam(self.explorer_reward.parameters(),
+                                        # self.explorer_rnd_reward.parameters(),
                                         #  list(self.explorer_reward.parameters()) + list(self.explorer_rnd_reward.parameters()),
                                          lr = cfg.learning.world_model_lr,
                                          eps = cfg.learning.epsilon,
@@ -155,18 +157,18 @@ class LEXA:
         actions = torch.from_numpy(actions).to(self.device)
         
         wm_loss, s2e_loss, (zs, hs), wm_metrics = self.world_model.train(observations, actions)
-        rnd_loss, rnd_metrics = self.explorer_rnd_reward.train(zs, hs)
-        # exp_reward_loss, exp_reward_metrics = self.explorer_reward.train(zs, hs)
+        # rnd_loss, rnd_metrics = self.explorer_rnd_reward.train(zs, hs)
+        exp_reward_loss, exp_reward_metrics = self.explorer_reward.train(zs, hs)
         self.wm_opt.zero_grad(True)
         wm_loss.backward()
         s2e_loss.backward()
         clip_grad_norm_(self.world_model.parameters(), self.cfg.learning.grad_clip)
         self.wm_opt.step()
         self.exp_reward_opt.zero_grad(True)
-        rnd_loss.backward()
-        # exp_reward_loss.backward()
-        # clip_grad_norm_(self.explorer_reward.parameters(), self.cfg.learning.grad_clip)
-        clip_grad_norm_(self.explorer_rnd_reward.parameters(), self.cfg.learning.grad_clip)
+        # rnd_loss.backward()
+        exp_reward_loss.backward()
+        clip_grad_norm_(self.explorer_reward.parameters(), self.cfg.learning.grad_clip)
+        # clip_grad_norm_(self.explorer_rnd_reward.parameters(), self.cfg.learning.grad_clip)
         self.exp_reward_opt.step()
         
         zs = zs.view(-1, self.cfg.model.world_model.z_dim * self.cfg.model.world_model.num_classes)
@@ -205,8 +207,10 @@ class LEXA:
         clip_grad_norm_(self.achiever_reward.parameters(), self.cfg.learning.grad_clip)
         self.ach_reward_opt.step()
         
+        
         # return wm_metrics | exp_reward_metrics | rnd_metrics | exp_metrics | ach_metrics
-        return wm_metrics | rnd_metrics | exp_metrics | ach_metrics
+        return wm_metrics | exp_reward_metrics | exp_metrics | ach_metrics
+        # return wm_metrics | rnd_metrics | exp_metrics | ach_metrics
     
     @staticmethod
     def load(checkpoint):
@@ -214,8 +218,8 @@ class LEXA:
         env = checkpoint['env']
         output = LEXA(cfg, env)
         output.world_model.load_state_dict(checkpoint['world_model'])
-        # output.explorer_reward.load_state_dict(checkpoint['exp_reward'])
-        output.explorer_rnd_reward.load_state_dict(checkpoint['exp_rnd_reward'])
+        output.explorer_reward.load_state_dict(checkpoint['exp_reward'])
+        # output.explorer_rnd_reward.load_state_dict(checkpoint['exp_rnd_reward'])
         output.explorer.load_state_dict(checkpoint['explorer'])
         output.achiever_reward.load_state_dict(checkpoint['ach_reward'])
         output.achiever.load_state_dict(checkpoint['achiever'])
@@ -234,8 +238,8 @@ class LEXA:
         torch.save(
             {
                 'world_model': self.world_model.state_dict(),
-                # 'exp_reward': self.explorer_reward.state_dict(),
-                'exp_rnd_reward': self.explorer_rnd_reward.state_dict(),
+                'exp_reward': self.explorer_reward.state_dict(),
+                # 'exp_rnd_reward': self.explorer_rnd_reward.state_dict(),
                 'explorer': self.explorer.state_dict(),
                 'ach_reward': self.achiever_reward.state_dict(),
                 'achiever': self.achiever.state_dict(),

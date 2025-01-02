@@ -5,10 +5,10 @@ from gymnasium_robotics.envs.maze.maps import *
 from gymnasium.wrappers import TimeLimit
 from pyvirtualdisplay import Display
 
-from .maze_utils.base_ant_maze import BaseAntMazeEnv
+from .maze_utils.base_point_maze import BasePointMazeEnv
 from .maze_utils.maps import *
 
-class AntMazeEnv(Env):
+class PointMazeEnv(Env):
     def __init__(self,
                  img_size,
                  action_repeat,
@@ -21,7 +21,7 @@ class AntMazeEnv(Env):
         
         self._seed = seed
         self._action_repeat = action_repeat
-        self._base_env = BaseAntMazeEnv(
+        self._base_env = BasePointMazeEnv(
             render_mode='rgb_array',
             width=img_size,
             height=img_size,
@@ -42,8 +42,8 @@ class AntMazeEnv(Env):
         self.goal_idx = -1
         
         self._env.reset(seed=self._seed)
-        self.init_qpos = self._base_env.ant_env.data.qpos.copy()
-        self.init_qvel = self._base_env.ant_env.data.qvel.copy()
+        self.init_qpos = self._base_env.point_env.data.qpos.copy()
+        self.init_qvel = self._base_env.point_env.data.qvel.copy()
         self.goal_rendered = False
         self.reset_pos = None
     
@@ -97,16 +97,16 @@ class AntMazeEnv(Env):
         
         goal_location = self.goal_locations[self.goal_idx]
         
-        backup_qpos = self._base_env.ant_env.data.qpos.copy()
-        backup_qvel = self._base_env.ant_env.data.qvel.copy()
+        backup_qpos = self._base_env.point_env.data.qpos.copy()
+        backup_qvel = self._base_env.point_env.data.qvel.copy()
         
         qpos = self.init_qpos.copy()
         qpos[:2] = goal_location
-        self._base_env.ant_env.set_state(qpos, np.zeros_like(self.init_qvel))
+        self._base_env.point_env.set_state(qpos, np.zeros_like(self.init_qvel))
         
         goal_obs = self._base_env._get_obs()
         
-        self._base_env.ant_env.set_state(backup_qpos, backup_qvel)
+        self._base_env.point_env.set_state(backup_qpos, backup_qvel)
         
         self.goal_rendered = True
         self.rendered_goal_obs = goal_obs
@@ -116,7 +116,7 @@ class AntMazeEnv(Env):
         if self.goal_idx == -1:
             return False
         
-        qpos = self._base_env.ant_env.data.qpos.copy()
+        qpos = self._base_env.point_env.data.qpos.copy()
         achieved_goal = qpos[:2]
         desired_goal = self.goal_locations[self.goal_idx]
         return bool(np.linalg.norm(achieved_goal - desired_goal) <= 0.45)

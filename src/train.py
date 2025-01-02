@@ -11,7 +11,7 @@ import wandb
 
 from config import Config
 from lexa import LEXA
-from envs.franka_kitchen import FrankaKichenEnv
+from envs.env_factory import env_factory
 from replay_buffer import ReplayBuffer
 from utils import fix_seed, preprocess_obs
 
@@ -29,8 +29,8 @@ def main(cfg):
                 name=cfg.wandb.name,
                 config=asdict(cfg))
     
-    env = FrankaKichenEnv(cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit, cfg.seed)
-    eval_env = FrankaKichenEnv(cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit, cfg.seed)
+    env = env_factory(cfg.env.task, cfg.seed, cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit)
+    eval_env = env_factory(cfg.env.task, cfg.seed, cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit)
     
     lexa = LEXA(cfg, env)
     replay_buffer = ReplayBuffer(cfg.data.buffer_size,
@@ -89,8 +89,8 @@ def main(cfg):
                 with torch.no_grad():
                     success = 0
                     for goal_idx in eval_env.goals:
-                        eval_obs = eval_env.reset()
                         eval_env.set_goal_idx(goal_idx)
+                        eval_obs = eval_env.reset()
                         goal_obs = eval_env.get_goal_obs()
                         goal_obs = preprocess_obs(goal_obs)
                         eval_done = False

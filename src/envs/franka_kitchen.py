@@ -59,8 +59,9 @@ class FrankaKichenEnv(Env):
         return self._env.close()
     
     def set_goal_idx(self, idx):
-        assert idx in self.goals
+        assert (idx in self.goals) or (idx == -1)
         self.goal_idx = idx
+        self.goal_rendered = False
     
     def get_goal_obs(self):
         if self.goal_idx == -1:

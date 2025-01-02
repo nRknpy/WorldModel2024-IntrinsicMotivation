@@ -10,7 +10,7 @@ model:
     mlp_hidden_dim: 400
     min_std: 0.1
     kl_balance_alpha: 0.8
-    kl_loss_scale: 0.05
+    kl_loss_scale: 0.1
   explorer:
     num_emsembles: 10
     emsembles_offset: 1
@@ -32,8 +32,11 @@ model:
     slow_critic_update: 100
 
 env:
-  task: 'FrankaKitchen'
+  # task: 'FrankaKitchen'
+  # task: 'AntMaze'
+  task: 'PointMaze'
   img_size: 64
+  # img_size: 128
   action_repeat: 2
   time_limit: 1000
 
@@ -61,8 +64,13 @@ learning:
 
 wandb:
   logging: true
-  name: 'frankakitchen-RND'
-  group: 'frankakitchen'
+  # name: 'frankakitchen-RND'
+  # name: 'antmaze-RND'
+  # name: 'pointmaze-RND'
+  name: 'pointmaze-vanilla'
+  # group: 'frankakitchen'
+  # group: 'antmaze'
+  group: 'pointmaze'
   project: 'LEXA'
 
 device: 'cuda'
