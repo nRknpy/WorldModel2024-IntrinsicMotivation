@@ -86,22 +86,22 @@ class LEXA:
             device = self.device
         ).to(self.device)
         
-        # self.achiever_reward = TemporalLatentDistanceReward(
-        #     self.world_model.state2emb,
-        #     z_dim = cfg.model.world_model.z_dim,
-        #     num_classes = cfg.model.world_model.num_classes,
-        #     h_dim = cfg.model.world_model.h_dim,
-        #     emb_dim = cfg.model.world_model.emb_dim,
-        #     mlp_hidden_dim = cfg.model.achiever.mlp_hidden_dim,
-        #     device = self.device
-        # ).to(self.device)
-        self.achiever_reward = CosineLatentDistanceReward(
-            worldmodel = self.world_model,
+        self.achiever_reward = TemporalLatentDistanceReward(
+            self.world_model.state2emb,
             z_dim = cfg.model.world_model.z_dim,
             num_classes = cfg.model.world_model.num_classes,
             h_dim = cfg.model.world_model.h_dim,
+            emb_dim = cfg.model.world_model.emb_dim,
+            mlp_hidden_dim = cfg.model.achiever.mlp_hidden_dim,
             device = self.device
         ).to(self.device)
+        # self.achiever_reward = CosineLatentDistanceReward(
+        #     worldmodel = self.world_model,
+        #     z_dim = cfg.model.world_model.z_dim,
+        #     num_classes = cfg.model.world_model.num_classes,
+        #     h_dim = cfg.model.world_model.h_dim,
+        #     device = self.device
+        # ).to(self.device)
         self.achiever = Achiever(
             world_model = self.world_model,
             instrinsic_reward = self.achiever_reward,
@@ -135,10 +135,10 @@ class LEXA:
                                          lr = cfg.learning.explorer_critic_lr,
                                          eps = cfg.learning.epsilon,
                                          weight_decay = cfg.learning.weight_decay)
-        # self.ach_reward_opt = optim.Adam(self.achiever_reward.parameters(),
-        #                                 lr = cfg.learning.achiever_critic_lr,
-        #                                 eps = cfg.learning.epsilon,
-        #                                 weight_decay = cfg.learning.weight_decay)
+        self.ach_reward_opt = optim.Adam(self.achiever_reward.parameters(),
+                                        lr = cfg.learning.achiever_critic_lr,
+                                        eps = cfg.learning.epsilon,
+                                        weight_decay = cfg.learning.weight_decay)
         self.ach_actor_opt = optim.Adam(self.achiever.actor.parameters(),
                                         lr = cfg.learning.achiever_actor_lr,
                                         eps = cfg.learning.epsilon,
@@ -182,16 +182,16 @@ class LEXA:
         clip_grad_norm_(self.explorer.critic.parameters(), self.cfg.learning.grad_clip)
         self.exp_critic_opt.step()
         
-        # ach_actor_loss, ach_critic_loss, de_loss, ach_metrics = self.achiever.train(zs, hs, observations,
-        #                                                                             self.cfg.data.imagination_horizon,
-        #                                                                             self.cfg.model.achiever.num_positives,
-        #                                                                             self.cfg.model.achiever.neg_sampling_factor,
-        #                                                                             self.cfg.data.seq_length)
-        ach_actor_loss, ach_critic_loss, ach_metrics = self.achiever.train(zs, hs, observations,
+        ach_actor_loss, ach_critic_loss, de_loss, ach_metrics = self.achiever.train(zs, hs, observations,
                                                                                     self.cfg.data.imagination_horizon,
                                                                                     self.cfg.model.achiever.num_positives,
                                                                                     self.cfg.model.achiever.neg_sampling_factor,
                                                                                     self.cfg.data.seq_length)
+        # ach_actor_loss, ach_critic_loss, ach_metrics = self.achiever.train(zs, hs, observations,
+        #                                                                             self.cfg.data.imagination_horizon,
+        #                                                                             self.cfg.model.achiever.num_positives,
+        #                                                                             self.cfg.model.achiever.neg_sampling_factor,
+        #                                                                             self.cfg.data.seq_length)
         self.ach_actor_opt.zero_grad(True)
         ach_actor_loss.backward()
         clip_grad_norm_(self.achiever.actor.parameters(), self.cfg.learning.grad_clip)
@@ -200,10 +200,10 @@ class LEXA:
         ach_critic_loss.backward()
         clip_grad_norm_(self.achiever.critic.parameters(), self.cfg.learning.grad_clip)
         self.ach_critic_opt.step()
-        # self.ach_reward_opt.zero_grad(True)
-        # de_loss.backward()
-        # clip_grad_norm_(self.achiever_reward.parameters(), self.cfg.learning.grad_clip)
-        # self.ach_reward_opt.step()
+        self.ach_reward_opt.zero_grad(True)
+        de_loss.backward()
+        clip_grad_norm_(self.achiever_reward.parameters(), self.cfg.learning.grad_clip)
+        self.ach_reward_opt.step()
         
         # return wm_metrics | exp_reward_metrics | rnd_metrics | exp_metrics | ach_metrics
         return wm_metrics | rnd_metrics | exp_metrics | ach_metrics
@@ -223,7 +223,7 @@ class LEXA:
         output.exp_reward_opt.load_state_dict(checkpoint['exp_reward_opt'])
         output.exp_actor_opt.load_state_dict(checkpoint['exp_actor_opt'])
         output.exp_critic_opt.load_state_dict(checkpoint['exp_critic_opt'])
-        # output.ach_reward_opt.load_state_dict(checkpoint['ach_reward_opt'])
+        output.ach_reward_opt.load_state_dict(checkpoint['ach_reward_opt'])
         output.ach_actor_opt.load_state_dict(checkpoint['ach_actor_opt'])
         output.ach_critic_opt.load_state_dict(checkpoint['ach_critic_opt'])
         return output
@@ -243,7 +243,7 @@ class LEXA:
                 'exp_reward_opt': self.exp_reward_opt.state_dict(),
                 'exp_actor_opt': self.exp_actor_opt.state_dict(),
                 'exp_critic_opt': self.exp_critic_opt.state_dict(),
-                # 'ach_reward_opt': self.ach_reward_opt.state_dict(),
+                'ach_reward_opt': self.ach_reward_opt.state_dict(),
                 'ach_actor_opt': self.ach_actor_opt.state_dict(),
                 'ach_critic_opt': self.ach_critic_opt.state_dict(),
                 'config': self.cfg,
