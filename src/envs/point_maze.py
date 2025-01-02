@@ -49,8 +49,9 @@ class PointMazeEnv(Env):
     
     def get_benchmark_goals(self):
         goal_locations = self._base_env.maze.unique_goal_locations
-        idxs = np.random.choice(np.arange(len(goal_locations)), size=min(20, len(goal_locations)), replace=False)
-        goals = [self._base_env.maze.unique_goal_locations[idx] for idx in idxs]
+        # idxs = np.random.choice(np.arange(len(goal_locations)), size=min(20, len(goal_locations)), replace=False)
+        # goals = [self._base_env.maze.unique_goal_locations[idx] for idx in idxs]
+        goals = goal_locations
         return goals
     
     def reset(self):

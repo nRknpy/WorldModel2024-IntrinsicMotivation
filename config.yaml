@@ -67,7 +67,7 @@ wandb:
   # name: 'frankakitchen-RND'
   # name: 'antmaze-RND'
   # name: 'pointmaze-RND'
-  name: 'pointmaze-vanilla'
+  name: 'pointmaze-vanilla+RND'
   # group: 'frankakitchen'
   # group: 'antmaze'
   group: 'pointmaze'
