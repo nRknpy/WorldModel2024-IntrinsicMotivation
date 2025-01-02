@@ -65,7 +65,7 @@ class LEXA:
             h_dim = cfg.model.world_model.h_dim,
             min_std = cfg.model.world_model.min_std,
             mlp_hidden_dim = cfg.model.explorer.mlp_hidden_dim,
-        )
+        ).to(self.device)
         self.explorer = Explorer(
             world_model = self.world_model,
             instrinsic_reward = self.explorer_reward,

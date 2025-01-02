@@ -98,6 +98,7 @@ class Explorer(nn.Module):
             rewards = 0
             rewards += self.instrinsic_reward.compute_reward(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
             rewards += 0.005 * self.rnd_reward.compute_reward(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
+            # rewards += self.rnd_reward.compute_reward(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
             target_values = self.target_critic(flatten_zs, flatten_hs).view(horison_length, -1) # (horison_length, batch_size * seq_length)
         
         mean_rewards = torch.mean(torch.sum(rewards, dim=0), dim=0)
