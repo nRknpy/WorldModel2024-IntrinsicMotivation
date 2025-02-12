@@ -58,8 +58,8 @@ class DataConfig:
 
 @dataclass
 class LearningConfig:
-    seed_steps: int = 5_000
-    num_steps: int = 1e7
+    seed_steps: int = 0
+    num_steps: int = 2e6
     expl_episode_freq: int = 2
     world_model_lr: float = 2e-4
     explorer_actor_lr: float = 4e-5
@@ -68,17 +68,17 @@ class LearningConfig:
     achiever_critic_lr: float = 1e-4
     epsilon: float = 1e-5
     weight_decay: float = 1e-6
-    grad_clip: float = 100
-    update_freq: int = 4
-    eval_episode_freq: int = 5
-    model_save_episode_freq: int = 100
+    grad_clip: float = 1000
+    update_freq: int = 5
+    eval_episode_freq: int = 100
+    model_save_episode_freq: int = 1000
 
 
 @dataclass
 class EnvConfig:
-    task: str = 'FrankaKitchen-v1'
-    img_size: int = 128
-    action_repeat: int = 2
+    task: str = 'PointMaze'
+    img_size: int = 64
+    action_repeat: int = 5
     time_limit: int = 1000
 
 

@@ -37,7 +37,7 @@ class PointMazeEnv(Env):
         self.action_space.seed(seed)
         self.observation_space.seed(seed)
         
-        self.goal_locations = self.get_benchmark_goals()
+        self.goal_locations, self.reset_locations = self.get_benchmark_goals()
         self.goals = list(range(len(self.goal_locations)))
         self.goal_idx = -1
         
@@ -49,10 +49,11 @@ class PointMazeEnv(Env):
     
     def get_benchmark_goals(self):
         goal_locations = self._base_env.maze.unique_goal_locations
+        reset_locations = self._base_env.maze.unique_reset_locations
         # idxs = np.random.choice(np.arange(len(goal_locations)), size=min(20, len(goal_locations)), replace=False)
         # goals = [self._base_env.maze.unique_goal_locations[idx] for idx in idxs]
-        goals = goal_locations
-        return goals
+        # goals = goal_locations
+        return goal_locations, reset_locations
     
     def reset(self):
         options = {}
@@ -87,7 +88,7 @@ class PointMazeEnv(Env):
         if idx == -1:
             self.reset_pos = None
         else:
-            self.reset_pos = [1, 1]
+            self.reset_pos = self.reset_locations[-(idx+1)]
     
     def get_goal_obs(self):
         if self.goal_idx == -1:
