@@ -20,6 +20,8 @@ einops = "*"
 omegaconf = "*"
 wandb = "*"
 pyvirtualdisplay = "*"
+imageio = "*"
+opencv-python = "*"
 
 [dev-packages]
 ipykernel = "*"

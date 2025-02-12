@@ -17,15 +17,15 @@ from replay_buffer import ReplayBuffer
 
 
 class LEXA:
-    def __init__(self, cfg: Config, env: Env):
+    def __init__(self, cfg: Config, action_dim: int):
         self.cfg = cfg
-        self.env = env
+        self.action_dim = action_dim
         self.device = torch.device(self.cfg.device)
         
         self.world_model = WorldModel(
             img_size = cfg.env.img_size,
             emb_dim = cfg.model.world_model.emb_dim,
-            action_dim = self.env.action_space.shape[0],
+            action_dim = self.action_dim,
             z_dim = cfg.model.world_model.z_dim,
             num_classes = cfg.model.world_model.num_classes,
             h_dim = cfg.model.world_model.h_dim,
@@ -72,7 +72,7 @@ class LEXA:
             # instrinsic_reward = None,
             rnd_reward = self.explorer_rnd_reward,
             # rnd_reward = None,
-            action_dim = self.env.action_space.shape[0],
+            action_dim = self.action_dim,
             z_dim = cfg.model.world_model.z_dim,
             num_classes = cfg.model.world_model.num_classes,
             h_dim = cfg.model.world_model.h_dim,
@@ -106,7 +106,7 @@ class LEXA:
         self.achiever = Achiever(
             world_model = self.world_model,
             instrinsic_reward = self.achiever_reward,
-            action_dim = self.env.action_space.shape[0],
+            action_dim = self.action_dim,
             z_dim = cfg.model.world_model.z_dim,
             num_classes = cfg.model.world_model.num_classes,
             h_dim = cfg.model.world_model.h_dim,
@@ -216,8 +216,8 @@ class LEXA:
     @staticmethod
     def load(checkpoint):
         cfg = checkpoint['config']
-        env = checkpoint['env']
-        output = LEXA(cfg, env)
+        action_dim = checkpoint['action_dim']
+        output = LEXA(cfg, action_dim)
         output.world_model.load_state_dict(checkpoint['world_model'])
         output.explorer_reward.load_state_dict(checkpoint['exp_reward'])
         output.explorer_rnd_reward.load_state_dict(checkpoint['exp_rnd_reward'])
@@ -252,7 +252,8 @@ class LEXA:
                 'ach_actor_opt': self.ach_actor_opt.state_dict(),
                 'ach_critic_opt': self.ach_critic_opt.state_dict(),
                 'config': self.cfg,
-                'env': self.env,
+                # 'env': self.env,
+                'action_dim': self.action_dim,
             },
             path
         )

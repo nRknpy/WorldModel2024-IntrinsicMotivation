@@ -154,8 +154,10 @@ class BasePointMazeEnv(MazeEnv, EzPickle):
 
         
         self.camera.lookat[:2] = self.point_env.data.qpos[:2]
+        # self.camera.lookat[:2] = np.zeros(2)
         self.camera.lookat[2] = 0
-        self.camera.distance = 4.0  # 必要に応じて調整
+        self.camera.distance = 4.0
+        # self.camera.distance = 16.0 #俯瞰図作成用
         self.camera.azimuth = 90
         self.camera.elevation = -90
 

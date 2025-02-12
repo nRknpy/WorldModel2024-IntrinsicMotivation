@@ -32,7 +32,7 @@ def main(cfg):
     env = env_factory(cfg.env.task, cfg.seed, cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit)
     eval_env = env_factory(cfg.env.task, cfg.seed, cfg.env.img_size, cfg.env.action_repeat, cfg.env.time_limit)
     
-    lexa = LEXA(cfg, env)
+    lexa = LEXA(cfg, env.action_space.shape[0])
     replay_buffer = ReplayBuffer(cfg.data.buffer_size,
                                  (3, cfg.env.img_size, cfg.env.img_size),
                                  env.action_space.shape[0])
