@@ -48,7 +48,7 @@ data:
 
 learning:
   seed_steps: 3000
-  num_steps: 2000000
+  num_steps: 10000000
   expl_episode_freq: 2
   world_model_lr: 0.0002
   explorer_actor_lr: 0.00008
@@ -76,5 +76,5 @@ wandb:
   group: 'pointmaze'
   project: 'LEXA'
 
-device: 'cuda:3'
+device: 'cuda:1'
 seed: 0
