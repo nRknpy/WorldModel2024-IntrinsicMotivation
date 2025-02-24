@@ -130,12 +130,15 @@ class BasePointMazeEnv(MazeEnv, EzPickle):
 
         return self._get_obs()
 
-    def step(self, action):
+    def step(self, action, render=True):
         """
         1ステップ実行
         """
         _, _, _, _, info = self.point_env.step(action)
-        obs = self._get_obs()
+        if render:
+            obs = self._get_obs()
+        else:
+            obs = None
         achieved_goal = self.point_env.data.qpos[:2]
         reward = self.compute_reward(achieved_goal, self.goal, {})
         terminated = self.compute_terminated(achieved_goal, self.goal, {})

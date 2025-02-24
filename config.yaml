@@ -17,7 +17,7 @@ model:
     emsembles_target_mode: 'z'
     mlp_hidden_dim: 400
     min_std: 0.1
-    discount: 0.99
+    discount: 0.995
     lambda_: 0.95
     actor_entropy_scale: 0.001
     slow_critic_update: 100
@@ -26,7 +26,7 @@ model:
     neg_sampling_factor: 0.1
     mlp_hidden_dim: 400
     min_std: 0.1
-    discount: 0.99
+    discount: 0.995
     lambda_: 0.95
     actor_entropy_scale: 0.001
     slow_critic_update: 100
@@ -37,29 +37,29 @@ env:
   task: 'PointMaze'
   img_size: 64
   # img_size: 128
-  action_repeat: 5
-  time_limit: 1000
+  action_repeat: 15
+  time_limit: 500
 
 data:
   buffer_size: 200000
   batch_size: 50
   seq_length: 50
-  imagination_horizon: 15
+  imagination_horizon: 10
 
 learning:
-  seed_steps: 50
+  seed_steps: 3000
   num_steps: 2000000
   expl_episode_freq: 2
   world_model_lr: 0.0002
-  explorer_actor_lr: 0.00004
+  explorer_actor_lr: 0.0001
   explorer_critic_lr: 0.0001
-  achiever_actor_lr: 0.00004
+  achiever_actor_lr: 0.0001
   achiever_critic_lr: 0.0001
   epsilon: 0.00001
   weight_decay: 0.000001
-  grad_clip: 1000
+  grad_clip: 500
   update_freq: 5
-  eval_episode_freq: 100
+  eval_episode_freq: 10
   model_save_episode_freq: 10
 
 wandb:
@@ -67,12 +67,14 @@ wandb:
   # name: 'frankakitchen-RND'
   # name: 'antmaze-RND'
   # name: 'pointmaze-RND'
-  name: 'pointmaze-vanilla'
-  # name: 'pointmaze-vanilla+RND'
+  # name: 'pointmaze-vanilla'
+  # name: 'pointmaze-p2e+RND'
+  # name: 'pointmaze-p2e'
+  name: 'pointmaze-RND'
   # group: 'frankakitchen'
   # group: 'antmaze'
   group: 'pointmaze'
   project: 'LEXA'
 
-device: 'cuda'
+device: 'cuda:1'
 seed: 0

@@ -8,6 +8,28 @@ from pyvirtualdisplay import Display
 from .maze_utils.base_point_maze import BasePointMazeEnv
 from .maze_utils.maps import *
 
+
+class CustomTimeLimit(TimeLimit):
+    def step(self, action, render=True):
+        """Steps through the environment and if the number of steps elapsed exceeds ``max_episode_steps`` then truncate.
+
+        Args:
+            action: The environment step action
+
+        Returns:
+            The environment step ``(observation, reward, terminated, truncated, info)`` with `truncated=True`
+            if the number of steps elapsed >= max episode steps
+
+        """
+        observation, reward, terminated, truncated, info = self.env.step(action, render=render)
+        self._elapsed_steps += 1
+
+        if self._elapsed_steps >= self._max_episode_steps:
+            truncated = True
+
+        return observation, reward, terminated, truncated, info
+
+
 class PointMazeEnv(Env):
     def __init__(self,
                  img_size,
@@ -29,7 +51,7 @@ class PointMazeEnv(Env):
             maze_color_map=maze_color_map,
             max_episode_steps=-1,
         )
-        self._env = TimeLimit(self._base_env, time_limit * action_repeat)
+        self._env = CustomTimeLimit(self._base_env, time_limit * action_repeat)
         
         self.observation_space = spaces.Box(0, 255, (img_size, img_size, 3), dtype=np.uint8)
         self.action_space = self._env.action_space
@@ -66,7 +88,7 @@ class PointMazeEnv(Env):
     def step(self, action):
         total_reward = 0
         for step in range(self._action_repeat):
-            state, reward, terminated, truncated, info = self._env.step(action)
+            state, reward, terminated, truncated, info = self._env.step(action, render=False)
             terminated = self.compute_success()
             done = truncated or terminated
             total_reward += reward
@@ -88,7 +110,8 @@ class PointMazeEnv(Env):
         if idx == -1:
             self.reset_pos = None
         else:
-            self.reset_pos = self.reset_locations[-(idx+1)]
+            # self.reset_pos = self.reset_locations[-(idx+1)]
+            self.reset_pos = [1, 1]
     
     def get_goal_obs(self):
         if self.goal_idx == -1:
