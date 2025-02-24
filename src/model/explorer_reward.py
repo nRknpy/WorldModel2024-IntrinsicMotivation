@@ -203,8 +203,8 @@ class FeedForwardRndReward(nn.Module):
         self.min_std = min_std
         self.hidden_dim = mlp_hidden_dim
         
-        self.rnd_predictor = RNDModule(z_dim, num_classes, h_dim, 256, min_std, mlp_hidden_dim)
-        self.rnd_target = RNDModule(z_dim, num_classes, h_dim, 256, min_std, mlp_hidden_dim).requires_grad_(False)
+        self.rnd_predictor = RNDModule(z_dim, num_classes, h_dim, 512, min_std, mlp_hidden_dim)
+        self.rnd_target = RNDModule(z_dim, num_classes, h_dim, 512, min_std, mlp_hidden_dim).requires_grad_(False)
     
     def compute_reward(self, z, h):
         predictor_dist = self.rnd_predictor(z, h)

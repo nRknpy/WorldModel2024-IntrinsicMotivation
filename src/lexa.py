@@ -127,7 +127,7 @@ class LEXA:
                                         # self.explorer_reward.parameters(),
                                         # self.explorer_rnd_reward.parameters(),
                                          list(self.explorer_reward.parameters()) + list(self.explorer_rnd_reward.parameters()),
-                                         lr = cfg.learning.world_model_lr,
+                                         lr = cfg.learning.explorer_critic_lr,
                                          eps = cfg.learning.epsilon,
                                          weight_decay = cfg.learning.weight_decay)
         self.exp_actor_opt = optim.Adam(self.explorer.actor.parameters(),
